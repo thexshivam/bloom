@@ -37,8 +37,8 @@
 
 ## Download
 
-- **Apple Silicon (M1/M2/M3/M4)**: [async-recorder-1.5.2-arm64.dmg](https://artifacts.videodb.io/sales-copilot/async-recorder-1.5.2-arm64.dmg)
-- **Apple Intel**: [async-recorder-1.5.2-x64.dmg](https://artifacts.videodb.io/sales-copilot/async-recorder-1.5.2-x64.dmg)
+- **Apple Silicon (M1/M2/M3/M4)**: [async-recorder-1.5.2-arm64.dmg](https://artifacts.videodb.io/async-recorder/async-recorder-1.5.2-arm64.dmg)
+- **Apple Intel**: [async-recorder-1.5.2-x64.dmg](https://artifacts.videodb.io/async-recorder/async-recorder-1.5.2-x64.dmg)
 
 <p>
   <em>Pre-built DMGs are available for macOS. Windows users can run from source — see <a href="#development-setup">Development Setup</a>. Linux support coming soon.</em>

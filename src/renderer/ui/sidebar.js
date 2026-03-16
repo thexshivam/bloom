@@ -29,7 +29,7 @@ const elements = {
 let activeSessionId = null;
 let lastSessionId = null;
 let timerInterval = null;
-let timerSeconds = 0;
+let timerStartedAt = null;
 
 // --- Initialization ---
 export async function initSidebar(onStartSessionCallback) {
@@ -108,6 +108,8 @@ export function resetSessionUI() {
     }
     if (elements.btnStop) {
         elements.btnStop.style.display = 'none';
+        elements.btnStop.textContent = 'Stop Recording';
+        elements.btnStop.disabled = false;
     }
 
     stopTimer();
@@ -124,6 +126,13 @@ export function resetSessionUI() {
 
 async function stopSession() {
     if (!activeSessionId) return;
+
+    // Immediate feedback
+    if (elements.btnStop) {
+        elements.btnStop.textContent = 'Stopping...';
+        elements.btnStop.disabled = true;
+    }
+
     try {
         const result = await window.recorderAPI.stopSession(activeSessionId);
         if (result.success) {
@@ -148,14 +157,14 @@ function formatTime(totalSeconds) {
 
 function startTimer() {
     stopTimer();
-    timerSeconds = 0;
+    timerStartedAt = Date.now();
     if (elements.statusText) {
         elements.statusText.textContent = `Rec ${formatTime(0)}`;
     }
     timerInterval = setInterval(() => {
-        timerSeconds++;
+        const elapsed = Math.floor((Date.now() - timerStartedAt) / 1000);
         if (elements.statusText) {
-            elements.statusText.textContent = `Rec ${formatTime(timerSeconds)}`;
+            elements.statusText.textContent = `Rec ${formatTime(elapsed)}`;
         }
     }, 1000);
 }
@@ -165,7 +174,7 @@ function stopTimer() {
         clearInterval(timerInterval);
         timerInterval = null;
     }
-    timerSeconds = 0;
+    timerStartedAt = null;
 }
 
 export function getActiveSessionId() {

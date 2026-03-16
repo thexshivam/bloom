@@ -369,8 +369,8 @@
             line-height: 1;
         }
 
-        .source-toggle[title]::after {
-            content: attr(title);
+        .source-toggle[data-label]::after {
+            content: attr(data-label);
             position: absolute;
             bottom: calc(100% + 6px);
             left: 50%;
@@ -1020,16 +1020,16 @@
             </div>
 
             <div class="source-row">
-                <button id="toggle-mic" class="source-toggle active disabled" title="Microphone" disabled>
+                <button id="toggle-mic" class="source-toggle active disabled" data-label="Microphone" disabled>
                     <span class="material-icons source-icon">mic</span>
                 </button>
-                <button id="toggle-screen" class="source-toggle active disabled" title="Screen" disabled>
+                <button id="toggle-screen" class="source-toggle active disabled" data-label="Screen" disabled>
                     <span class="material-icons source-icon">monitor</span>
                 </button>
-                <button id="toggle-audio" class="source-toggle active disabled" title="System Audio" disabled>
+                <button id="toggle-audio" class="source-toggle active disabled" data-label="System Audio" disabled>
                     <span class="material-icons source-icon">volume_up</span>
                 </button>
-                <button id="toggle-camera" class="source-toggle" title="Camera">
+                <button id="toggle-camera" class="source-toggle" data-label="Camera">
                     <span class="material-icons source-icon">videocam</span>
                 </button>
             </div>

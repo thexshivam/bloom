@@ -46,7 +46,9 @@ async function initDatabase(filePath) {
     );
   `);
 
-  db.run('CREATE INDEX IF NOT EXISTS idx_recordings_session_id ON recordings(session_id)');
+  // Upgrade to UNIQUE index (safe: drop non-unique first if it exists)
+  try { db.run('DROP INDEX IF EXISTS idx_recordings_session_id'); } catch (_) {}
+  db.run('CREATE UNIQUE INDEX IF NOT EXISTS idx_recordings_session_id ON recordings(session_id)');
   db.run('CREATE INDEX IF NOT EXISTS idx_users_access_token ON users(access_token)');
 
   // Migration: add name column if missing
@@ -137,6 +139,12 @@ function findUserByApiKey(apiKey) {
 // --- Recording queries ---
 
 function createRecording(data) {
+  // Prevent duplicate recordings for the same capture session
+  if (data.session_id) {
+    const existing = findRecordingBySessionId(data.session_id);
+    if (existing) return existing;
+  }
+
   db.run(
     `INSERT INTO recordings (video_id, stream_url, player_url, session_id, created_at, insights, insights_status, name)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,

@@ -30,7 +30,7 @@
 </p>
 
 <p align="center">
-  <img src="assets/home.png" alt="Async Recorder" width="400">
+  <img src="assets/home.png?v=2" alt="Async Recorder" width="400">
 </p>
 
 ---

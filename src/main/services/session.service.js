@@ -1,6 +1,5 @@
 'use strict';
 
-const { CaptureClient } = require('videodb/capture');
 const { findRecordingBySessionId, updateRecording, getOrphanedRecordings } = require('../db/database');
 const { indexVideo } = require('./insights.service');
 
@@ -8,12 +7,6 @@ const { indexVideo } = require('./insights.service');
 
 /** CaptureClient instance (created per recording session) */
 let captureClient = null;
-
-/** Active WebSocket connection for real-time capture events */
-let wsConnection = null;
-
-/** Timeout that force-closes WS if no terminal event arrives */
-let wsCloseTimeout = null;
 
 /** Cached client session token (valid ~24 h) */
 let cachedSessionToken = null;
@@ -101,11 +94,11 @@ async function processIndexingBackground(recordingId, videoId, apiKey) {
   }
 }
 
-// --- Polling fallback ---
+// --- Polling ---
 
 /**
  * Poll a capture session's status until exported or failed.
- * Used when the WebSocket misses the terminal event.
+ * Called after stop to wait for server-side export to complete.
  */
 async function syncCaptureSession(sessionId, apiKey, videodbService) {
   const POLL_INTERVAL = 10_000;
@@ -120,7 +113,7 @@ async function syncCaptureSession(sessionId, apiKey, videodbService) {
       if (session.exportedVideoId) {
         console.log(`[Sync] Exported video received: ${session.exportedVideoId}`);
         const recording = findRecordingBySessionId(sessionId);
-        if (recording) {
+        if (recording && !recording.video_id) {
           updateRecording(recording.id, {
             video_id: session.exportedVideoId,
             stream_url: session.streamUrl,
@@ -163,68 +156,44 @@ async function syncOrphanedSessions(apiKey, videodbService) {
   }
 }
 
-// --- WebSocket event listener ---
-
 /**
- * Start background listener on a WebSocket connection for capture session events.
- * Handles the exported/stopped/failed events, updates DB, triggers indexing.
- * Falls back to polling if the WS closes without a terminal event.
+ * Single-pass check for all unresolved recordings (no video_id).
+ * Makes one API call per recording — no retries or polling loop.
+ * Used by the manual refresh button in the history window.
  */
-function startWebSocketListener(ws, captureSessionId, apiKey, videodbService) {
-  (async () => {
-    let receivedTerminalEvent = false;
+async function checkPendingRecordings(apiKey, videodbService) {
+  if (!apiKey) return 0;
+
+  const orphaned = getOrphanedRecordings();
+  if (orphaned.length === 0) return 0;
+
+  let resolved = 0;
+  console.log(`[Refresh] Checking ${orphaned.length} pending recording(s)...`);
+
+  for (const rec of orphaned) {
     try {
-      console.log('[WS] Listening for capture session events...');
-      for await (const msg of ws.receive()) {
-        const channel = msg.channel || msg.type || 'unknown';
-        const status = msg.data?.status || msg.status || '';
-        console.log(`[WS] ${channel}: ${status}`);
+      const session = await videodbService.getCaptureSession(apiKey, rec.session_id);
 
-        if (channel === 'capture_session') {
-          const data = msg.data || {};
-          const videoId = data.exported_video_id;
-          const streamUrl = data.stream_url;
-          const playerUrl = data.player_url;
-          const sessionId = msg.capture_session_id;
-
-          if (videoId) {
-            const recording = findRecordingBySessionId(sessionId);
-            if (recording) {
-              updateRecording(recording.id, {
-                video_id: videoId,
-                stream_url: streamUrl,
-                player_url: playerUrl,
-                insights_status: 'pending',
-              });
-              console.log(`[WS] Updated recording: ${videoId}`);
-              processIndexingBackground(recording.id, videoId, apiKey);
-            }
-          }
-        }
-
-        if (channel === 'capture_session' && (status === 'stopped' || status === 'exported' || status === 'failed')) {
-          receivedTerminalEvent = true;
-          if (wsCloseTimeout) { clearTimeout(wsCloseTimeout); wsCloseTimeout = null; }
-          console.log(`[WS] Terminal event (${status}), closing WebSocket...`);
-          await ws.close();
-          if (wsConnection === ws) wsConnection = null;
-          break;
-        }
+      if (session.exportedVideoId) {
+        updateRecording(rec.id, {
+          video_id: session.exportedVideoId,
+          stream_url: session.streamUrl,
+          player_url: session.playerUrl,
+          insights_status: 'pending',
+        });
+        processIndexingBackground(rec.id, session.exportedVideoId, apiKey);
+        resolved++;
+      } else if (session.status === 'failed') {
+        updateRecording(rec.id, { insights_status: 'failed' });
+        resolved++;
       }
     } catch (err) {
-      console.error('[WS] Listener error:', err.message);
+      console.error(`[Refresh] Error checking session ${rec.session_id}:`, err.message);
     }
+  }
 
-    // Sync recording if video data is still missing
-    try {
-      const rec = findRecordingBySessionId(captureSessionId);
-      if (!receivedTerminalEvent || (rec && !rec.video_id)) {
-        await syncCaptureSession(captureSessionId, apiKey, videodbService);
-      }
-    } catch (fallbackErr) {
-      console.error('[Sync] Error:', fallbackErr.message);
-    }
-  })();
+  console.log(`[Refresh] Resolved ${resolved}/${orphaned.length} recording(s)`);
+  return resolved;
 }
 
 // --- CaptureClient lifecycle ---
@@ -237,24 +206,8 @@ function setCaptureClient(client) {
   captureClient = client;
 }
 
-function getWsConnection() {
-  return wsConnection;
-}
-
-function setWsConnection(ws) {
-  wsConnection = ws;
-}
-
-function getWsCloseTimeout() {
-  return wsCloseTimeout;
-}
-
-function setWsCloseTimeout(timeout) {
-  wsCloseTimeout = timeout;
-}
-
 /**
- * Graceful shutdown of capture client and WebSocket.
+ * Graceful shutdown of capture client.
  */
 async function shutdownSession() {
   if (captureClient) {
@@ -265,19 +218,6 @@ async function shutdownSession() {
       console.error('Error during SDK shutdown:', error);
     }
     captureClient = null;
-  }
-
-  if (wsCloseTimeout) {
-    clearTimeout(wsCloseTimeout);
-    wsCloseTimeout = null;
-  }
-
-  if (wsConnection) {
-    try {
-      await wsConnection.close();
-      console.log('[WS] WebSocket closed');
-    } catch (_) { /* ignore */ }
-    wsConnection = null;
   }
 }
 
@@ -290,15 +230,10 @@ module.exports = {
   // Sync / polling
   syncCaptureSession,
   syncOrphanedSessions,
-  // WebSocket
-  startWebSocketListener,
+  checkPendingRecordings,
   // CaptureClient accessors
   getCaptureClient,
   setCaptureClient,
-  getWsConnection,
-  setWsConnection,
-  getWsCloseTimeout,
-  setWsCloseTimeout,
   // Lifecycle
   shutdownSession,
 };

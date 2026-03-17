@@ -4,17 +4,13 @@ const { app, ipcMain, systemPreferences } = require('electron');
 const { CaptureClient } = require('videodb/capture');
 const { applyVideoDBPatches } = require('../lib/videodb-patch');
 const { getAppConfig } = require('../lib/config');
-const { findUserByToken } = require('../db/database');
+const { findUserByToken, findRecordingBySessionId, updateRecording } = require('../db/database');
 const { createRecording } = require('../db/database');
 const {
   getSessionToken,
+  syncCaptureSession,
   getCaptureClient,
   setCaptureClient,
-  getWsConnection,
-  setWsConnection,
-  getWsCloseTimeout,
-  setWsCloseTimeout,
-  startWebSocketListener,
 } = require('../services/session.service');
 
 /**
@@ -39,26 +35,12 @@ function registerCaptureHandlers(getVideodbService, getMainWindow) {
 
       const videodbService = getVideodbService();
 
-      // 1a. Connect WebSocket
-      console.log('[WS] Connecting WebSocket...');
-      let ws;
-      try {
-        ws = await videodbService.connectWebsocket(user.api_key);
-        setWsConnection(ws);
-        console.log(`[WS] WebSocket connected, connectionId: ${ws.connectionId}`);
-      } catch (err) {
-        console.error('[WS] WebSocket connection failed:', err.message);
-        setWsConnection(null);
-        return { success: false, error: 'WebSocket connection failed: ' + err.message };
-      }
-
-      // 1b. Create capture session
+      // 1. Create capture session
       console.log('Creating capture session via SDK...');
       let captureSessionId;
       try {
         const sessionData = await videodbService.createCaptureSession(user.api_key, {
           endUserId: `user-${user.id}`,
-          wsConnectionId: ws.connectionId,
           metadata: { clientSessionId, startedAt: Date.now() },
         });
         captureSessionId = sessionData.sessionId;
@@ -68,23 +50,20 @@ function registerCaptureHandlers(getVideodbService, getMainWindow) {
         return { success: false, error: 'Failed to create capture session: ' + err.message };
       }
 
-      // 1c. Save to DB immediately
+      // 2. Save to DB immediately
       createRecording({
         session_id: captureSessionId,
         created_at: new Date().toISOString(),
         insights_status: 'recording',
       });
 
-      // 1d. Start background WebSocket listener
-      startWebSocketListener(ws, captureSessionId, user.api_key, videodbService);
-
-      // 2. Get session token
+      // 3. Get session token
       const sessionToken = await getSessionToken(videodbService, user.api_key);
       if (!sessionToken) {
         return { success: false, error: 'Failed to get session token. Please register first.' };
       }
 
-      // 3. Create CaptureClient
+      // 4. Create CaptureClient
       if (app.isPackaged) applyVideoDBPatches();
 
       const captureOptions = { sessionToken };
@@ -99,7 +78,7 @@ function registerCaptureHandlers(getVideodbService, getMainWindow) {
       });
       setCaptureClient(captureClient);
 
-      // 4. List channels
+      // 5. List channels
       console.log('Listing available channels...');
       let channels;
       try {
@@ -112,7 +91,7 @@ function registerCaptureHandlers(getVideodbService, getMainWindow) {
         return { success: false, error: 'Failed to list capture channels' };
       }
 
-      // 5. Select channels
+      // 6. Select channels
       const captureChannels = [];
 
       const micChannel = channels.mics.default;
@@ -137,7 +116,7 @@ function registerCaptureHandlers(getVideodbService, getMainWindow) {
         return { success: false, error: 'No capture channels available. Check permissions.' };
       }
 
-      // 6. Check permissions
+      // 7. Check permissions
       const screenAccess = systemPreferences.getMediaAccessStatus('screen');
       const micAccess = systemPreferences.getMediaAccessStatus('microphone');
       console.log(`Permissions — screen: ${screenAccess}, microphone: ${micAccess}`);
@@ -154,7 +133,7 @@ function registerCaptureHandlers(getVideodbService, getMainWindow) {
         console.log('Microphone access granted');
       }
 
-      // 7. Start capture
+      // 8. Start capture
       console.log('Starting capture session...');
       await captureClient.startSession({
         sessionId: captureSessionId,
@@ -201,16 +180,18 @@ function registerCaptureHandlers(getVideodbService, getMainWindow) {
     }
     setCaptureClient(null);
 
-    // Timeout: if WS doesn't get terminal event within 2 min, force-close
-    const ws = getWsConnection();
-    if (ws && !getWsCloseTimeout()) {
-      const timeout = setTimeout(async () => {
-        console.log('[WS] Timeout waiting for terminal event, closing...');
-        try { await ws.close(); } catch (_) { /* ignore */ }
-        if (getWsConnection() === ws) setWsConnection(null);
-        setWsCloseTimeout(null);
-      }, 120_000);
-      setWsCloseTimeout(timeout);
+    // Mark as processing and start polling for export in background
+    const recording = findRecordingBySessionId(sessionId);
+    if (recording) {
+      updateRecording(recording.id, { insights_status: 'processing' });
+    }
+
+    const apiKey = _getCurrentUserApiKey();
+    if (apiKey) {
+      const videodbService = getVideodbService();
+      syncCaptureSession(sessionId, apiKey, videodbService).catch(err => {
+        console.error('[Sync] Background poll failed:', err.message);
+      });
     }
 
     const mainWindow = getMainWindow();

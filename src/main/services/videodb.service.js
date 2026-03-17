@@ -67,32 +67,17 @@ class VideoDBService {
   }
 
   /**
-   * Connect a WebSocket for real-time event streaming.
-   * @param {string} apiKey
-   * @param {string} [collectionId='default']
-   * @returns {Promise<import('videodb').WebSocketConnection>}
-   */
-  async connectWebsocket(apiKey, collectionId = 'default') {
-    const conn = this._getConnection(apiKey);
-    const ws = await conn.connectWebsocket(collectionId);
-    await ws.connect();
-    return ws;
-  }
-
-  /**
    * Create a capture session on VideoDB.
    * @param {string} apiKey
    * @param {object} options
    * @param {string} options.endUserId
-   * @param {string} options.wsConnectionId
    * @param {object} [options.metadata]
    * @returns {Promise<{sessionId: string, collectionId: string, endUserId: string, status: string}>}
    */
-  async createCaptureSession(apiKey, { endUserId, wsConnectionId, metadata }) {
+  async createCaptureSession(apiKey, { endUserId, metadata }) {
     const conn = this._getConnection(apiKey);
     const session = await conn.createCaptureSession({
       endUserId,
-      wsConnectionId,
       metadata,
     });
     return {

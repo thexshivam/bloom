@@ -4,6 +4,7 @@ const { ipcMain } = require('electron');
 const { getRecordings: dbGetRecordings, updateRecording, findRecordingBySessionId } = require('../db/database');
 const { getAppConfig } = require('../lib/config');
 const { findUserByToken } = require('../db/database');
+const { checkPendingRecordings } = require('../services/session.service');
 
 /**
  * Register recording history IPC handlers.
@@ -48,6 +49,19 @@ function registerHistoryHandlers(getVideodbService) {
       return { success: true, ...urls };
     } catch (error) {
       console.error('Error getting share URL:', error);
+      return { success: false, error: error.message };
+    }
+  });
+
+  ipcMain.handle('sync-pending-recordings', async () => {
+    try {
+      const apiKey = _getCurrentUserApiKey();
+      if (!apiKey) return { success: false, error: 'Not authenticated' };
+      const videodbService = getVideodbService();
+      const resolved = await checkPendingRecordings(apiKey, videodbService);
+      return { success: true, resolved };
+    } catch (error) {
+      console.error('Error syncing pending recordings:', error);
       return { success: false, error: error.message };
     }
   });

@@ -41,7 +41,10 @@ async function init() {
 
     loadHistoryList();
 
-    document.getElementById('refreshBtn')?.addEventListener('click', loadHistoryList);
+    document.getElementById('refreshBtn')?.addEventListener('click', async () => {
+        await window.recorderAPI.syncPendingRecordings();
+        loadHistoryList();
+    });
     document.getElementById('closeHistoryBtn')?.addEventListener('click', () => window.close());
     document.getElementById('shareBtn')?.addEventListener('click', handleShare);
     document.getElementById('editNameBtn')?.addEventListener('click', () => startNameEdit());

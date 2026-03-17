@@ -9,6 +9,7 @@ contextBridge.exposeInMainWorld('recorderAPI', {
     resumeTracks: (sessionId, tracks) => ipcRenderer.invoke('recorder-resume-tracks', sessionId, tracks),
     onRecorderEvent: (callback) => ipcRenderer.on('recorder-event', (event, data) => callback(data)),
     getRecordings: () => ipcRenderer.invoke('get-recordings'),
+    syncPendingRecordings: () => ipcRenderer.invoke('sync-pending-recordings'),
     getShareUrl: (videoId) => ipcRenderer.invoke('get-share-url', videoId),
     updateRecordingName: (id, name) => ipcRenderer.invoke('update-recording-name', id, name),
 

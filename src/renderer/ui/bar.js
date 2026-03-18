@@ -58,10 +58,9 @@ export async function initBar(onStartSessionCallback) {
     }
 
     bindToggleEvents();
+    bindDisplaySelectorEvents();
     bindRenameEvents();
-
-    // Mic/audio start disabled — only toggleable during active recording
-    enableToggles(false);
+    initClickThrough();
 }
 
 // --- Close Button ---
@@ -74,6 +73,45 @@ function initCloseButton() {
             }
         });
     }
+}
+
+// --- Click-Through ---
+// Transparent area passes clicks to apps behind. Only the bar itself is interactive.
+
+function initClickThrough() {
+    const bar = elements.mainApp;
+    if (!bar || !window.recorderAPI?.setIgnoreMouse) return;
+
+    // mouseenter/mouseleave don't fire reliably when setIgnoreMouseEvents
+    // is active with { forward: true }. Use document-level mousemove with
+    // bounding-rect hit testing instead.
+    let isOverBar = false;
+    let isMouseDown = false;
+
+    // Track mouse button state so we never re-enable click-through mid-drag.
+    // During a drag the window moves under the cursor, which can momentarily
+    // place the cursor outside the bar's bounding rect — without this guard
+    // that would flip ignore back on and drop the drag.
+    document.addEventListener('mousedown', () => { isMouseDown = true; });
+    document.addEventListener('mouseup', () => { isMouseDown = false; });
+
+    document.addEventListener('mousemove', (e) => {
+        const rect = bar.getBoundingClientRect();
+        // Pad the detection zone by a few px so the IPC toggle takes effect
+        // before the cursor visually reaches the bar edge.
+        const pad = 4;
+        const over =
+            e.clientX >= rect.left - pad && e.clientX <= rect.right + pad &&
+            e.clientY >= rect.top - pad && e.clientY <= rect.bottom + pad;
+
+        if (over && !isOverBar) {
+            isOverBar = true;
+            window.recorderAPI.setIgnoreMouse(false);
+        } else if (!over && isOverBar && !isMouseDown) {
+            isOverBar = false;
+            window.recorderAPI.setIgnoreMouse(true);
+        }
+    });
 }
 
 // --- Session State Management ---
@@ -98,20 +136,16 @@ export function setSessionActive(sessionId) {
     }
     startTimer();
 
-    enableToggles(true);
+    // Pause any tracks the user toggled off before starting
+    pauseDisabledTracks(sessionId);
 }
 
 export function setSessionLoading() {
     if (elements.btnStart) {
         elements.btnStart.disabled = true;
         elements.btnStart.classList.add('loading');
-    }
-    if (elements.statusBadge) {
-        elements.statusBadge.className = 'status-badge starting';
-        elements.statusBadge.classList.remove('hidden');
-    }
-    if (elements.statusText) {
-        elements.statusText.textContent = 'Starting';
+        const label = elements.btnStart.querySelector('.btn-label');
+        if (label) label.textContent = 'Gearing up\u2026';
     }
 }
 
@@ -127,6 +161,8 @@ export function resetSessionUI() {
     if (elements.btnStart) {
         elements.btnStart.classList.remove('hidden', 'loading');
         elements.btnStart.disabled = false;
+        const label = elements.btnStart.querySelector('.btn-label');
+        if (label) label.textContent = 'Start Recording';
     }
 
     // Show rename row if there was a recording
@@ -150,7 +186,6 @@ export function resetSessionUI() {
         elements.statusText.textContent = 'Ready';
     }
 
-    enableToggles(false);
     resetToggles();
 
     // Reset display pill state
@@ -297,7 +332,8 @@ function bindToggleEvents() {
         });
     }
 
-    // Mic & Audio — only toggleable during active recording
+    // Mic & Audio — always interactive.
+    // Idle: visual toggle only. Recording: pause/resume via IPC.
     const recordingToggles = [
         { el: elements.toggleMic, track: 'mic' },
         { el: elements.toggleAudio, track: 'system_audio' },
@@ -306,37 +342,44 @@ function bindToggleEvents() {
     for (const { el, track } of recordingToggles) {
         if (!el) continue;
         el.addEventListener('click', async () => {
-            if (el.classList.contains('disabled')) return;
-            if (!activeSessionId) return;
-
             const isActive = el.classList.contains('active');
             const newState = !isActive;
             updatePillVisual(el, newState);
 
-            try {
-                if (newState) {
-                    addLog(`Resuming ${track}...`);
-                    await window.recorderAPI.resumeTracks(activeSessionId, [track]);
-                } else {
-                    addLog(`Pausing ${track}...`);
-                    await window.recorderAPI.pauseTracks(activeSessionId, [track]);
+            // During recording: pause/resume the track
+            if (activeSessionId) {
+                try {
+                    if (newState) {
+                        addLog(`Resuming ${track}...`);
+                        await window.recorderAPI.resumeTracks(activeSessionId, [track]);
+                    } else {
+                        addLog(`Pausing ${track}...`);
+                        await window.recorderAPI.pauseTracks(activeSessionId, [track]);
+                    }
+                } catch (error) {
+                    addLog(`Failed to toggle ${track}: ${error.message}`, 'error');
+                    updatePillVisual(el, isActive);
                 }
-            } catch (error) {
-                addLog(`Failed to toggle ${track}: ${error.message}`, 'error');
-                updatePillVisual(el, isActive);
             }
         });
     }
 }
 
-function enableToggles(enabled) {
-    const toggles = [elements.toggleMic, elements.toggleAudio];
-    for (const t of toggles) {
-        if (!t) continue;
-        if (enabled) {
-            t.classList.remove('disabled');
-        } else {
-            t.classList.add('disabled');
+async function pauseDisabledTracks(sessionId) {
+    const trackMap = [
+        { el: elements.toggleMic, track: 'mic' },
+        { el: elements.toggleAudio, track: 'system_audio' },
+    ];
+    const toPause = trackMap
+        .filter(({ el }) => el && !el.classList.contains('active'))
+        .map(({ track }) => track);
+
+    if (toPause.length > 0) {
+        try {
+            addLog(`Pausing pre-disabled tracks: ${toPause.join(', ')}`);
+            await window.recorderAPI.pauseTracks(sessionId, toPause);
+        } catch (error) {
+            addLog(`Failed to pause tracks: ${error.message}`, 'error');
         }
     }
 }
@@ -354,7 +397,11 @@ export async function loadDevices() {
     try {
         const result = await window.recorderAPI.listDevices();
         if (!result.success) {
-            console.warn('Failed to list devices:', result.error);
+            console.error('Failed to list devices:', result.error);
+            // Auth expired — show login modal
+            if (result.error === 'Not authenticated') {
+                await window.recorderAPI.showOnboardingModal();
+            }
             return;
         }
 
@@ -367,7 +414,6 @@ export async function loadDevices() {
             const label = elements.toggleMic?.querySelector('.source-label');
             if (label) {
                 label.dataset.on = mic.name;
-                label.dataset.off = 'No mic';
             }
             updatePillVisual(elements.toggleMic, true);
         }
@@ -379,7 +425,6 @@ export async function loadDevices() {
             const label = elements.toggleAudio?.querySelector('.source-label');
             if (label) {
                 label.dataset.on = audio.name;
-                label.dataset.off = 'No audio';
             }
             updatePillVisual(elements.toggleAudio, true);
         }
@@ -394,82 +439,88 @@ export async function loadDevices() {
 }
 
 function populateDisplayDropdown(displays) {
-    const dropdown = document.getElementById('displayDropdown');
     const label = document.getElementById('displayLabel');
-    const selector = document.getElementById('displaySelector');
-    if (!dropdown || !label) return;
-
-    dropdown.innerHTML = '';
+    if (!label) return;
 
     if (displays.length === 0) {
+        selectedDisplayId = null;
         label.textContent = 'No display';
         return;
     }
 
-    // Select the first display by default
     selectedDisplayId = displays[0].id;
     label.textContent = displays[0].name;
+}
 
-    for (const display of displays) {
-        const item = document.createElement('button');
-        item.className = 'display-dropdown-item' + (display.id === selectedDisplayId ? ' selected' : '');
-        item.innerHTML = `<span class="check-mark">${display.id === selectedDisplayId ? '&#10003;' : ''}</span><span>${display.name}</span>`;
-        item.addEventListener('click', (e) => {
-            e.stopPropagation();
-            selectedDisplayId = display.id;
-            label.textContent = display.name;
+// --- Display Selector (separate picker window) ---
 
-            // Update check marks
-            dropdown.querySelectorAll('.display-dropdown-item').forEach((el, i) => {
-                const isSelected = displays[i].id === selectedDisplayId;
-                el.classList.toggle('selected', isSelected);
-                el.querySelector('.check-mark').innerHTML = isSelected ? '&#10003;' : '';
+let displayPickerClosedAt = 0;
+
+function bindDisplaySelectorEvents() {
+    const pill = elements.toggleScreen;
+    if (!pill || pill.dataset.bound === 'true') return;
+    pill.dataset.bound = 'true';
+
+    pill.addEventListener('click', async (e) => {
+        e.stopPropagation();
+
+        // During recording: toggle display track pause/resume
+        if (activeSessionId) {
+            const isActive = pill.classList.contains('active');
+            const newState = !isActive;
+            pill.classList.toggle('active', newState);
+            try {
+                if (newState) {
+                    addLog('Resuming display...');
+                    await window.recorderAPI.resumeTracks(activeSessionId, ['screen']);
+                } else {
+                    addLog('Pausing display...');
+                    await window.recorderAPI.pauseTracks(activeSessionId, ['screen']);
+                }
+            } catch (error) {
+                addLog(`Failed to toggle display: ${error.message}`, 'error');
+                pill.classList.toggle('active', isActive);
+            }
+            return;
+        }
+
+        // If picker just closed (blur fires before this click), skip reopening
+        if (Date.now() - displayPickerClosedAt < 300) return;
+
+        // Idle mode: open display picker window
+        const displayList = Array.isArray(devices.displays) ? devices.displays : [];
+        if (displayList.length === 0) {
+            addLog('No displays available', 'error');
+            return;
+        }
+
+        const rect = pill.getBoundingClientRect();
+        const anchorRect = {
+            x: Math.round(rect.x),
+            y: Math.round(rect.y),
+            width: Math.round(rect.width),
+            height: Math.round(rect.height),
+        };
+
+        try {
+            const result = await window.recorderAPI.openDisplayPicker({
+                anchorRect,
+                displays: displayList,
+                selectedDisplayId,
+                preferredWidth: 220,
             });
 
-            // Close dropdown
-            dropdown.classList.remove('visible');
-            if (selector) selector.classList.remove('open');
-        });
-        dropdown.appendChild(item);
-    }
+            displayPickerClosedAt = Date.now();
 
-    // Display pill click: dropdown in idle mode, pause/resume in recording mode
-    const pill = elements.toggleScreen;
-    if (pill) {
-        pill.addEventListener('click', async (e) => {
-            e.stopPropagation();
-
-            // During recording: toggle display track pause/resume
-            if (activeSessionId) {
-                const isActive = pill.classList.contains('active');
-                const newState = !isActive;
-                pill.classList.toggle('active', newState);
-                try {
-                    if (newState) {
-                        addLog('Resuming display...');
-                        await window.recorderAPI.resumeTracks(activeSessionId, ['screen']);
-                    } else {
-                        addLog('Pausing display...');
-                        await window.recorderAPI.pauseTracks(activeSessionId, ['screen']);
-                    }
-                } catch (error) {
-                    addLog(`Failed to toggle display: ${error.message}`, 'error');
-                    pill.classList.toggle('active', isActive);
-                }
-                return;
+            if (result && !result.cancelled && result.id) {
+                selectedDisplayId = result.id;
+                const label = document.getElementById('displayLabel');
+                if (label) label.textContent = result.name || 'Display';
             }
-
-            // Idle mode: toggle dropdown
-            const isOpen = dropdown.classList.contains('visible');
-            dropdown.classList.toggle('visible', !isOpen);
-            if (selector) selector.classList.toggle('open', !isOpen);
-        });
-    }
-
-    // Close on outside click
-    document.addEventListener('click', () => {
-        dropdown.classList.remove('visible');
-        if (selector) selector.classList.remove('open');
+        } catch (error) {
+            displayPickerClosedAt = Date.now();
+            addLog(`Display picker failed: ${error.message}`, 'error');
+        }
     });
 }
 

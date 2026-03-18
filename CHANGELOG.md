@@ -1,14 +1,15 @@
 # Changelog
 
-## [2.0.0] - 2026-03-18
+## [2.0.0] - 2026-03-19
 
-- Replaced main window with a floating bottom bar (always-on-top, transparent, content-protected)
-- Extracted permissions and onboarding flows into separate modal windows
-- Added source toggle pills with live device discovery (mic, system audio, camera, screen)
-- Display selector dropdown with multi-monitor support
-- Recording state UI: icon-only toggles, timer, stop button, pause/resume per track
-- Camera bubble toggle independent of recording state
-- Renamed sidebar.js to bar.js, cleaned up unused assets
+- Replaced main window with a minimal floating bottom bar
+- Click-through transparent areas so the bar doesn't block apps behind it
+- Display picker as a separate floating popup with multi-monitor support
+- Source toggles (mic, audio, camera, screen) work before and during recording
+- Inline loading state on start button during session initialization
+- Tooltips on all bar controls
+- Auto-show login on auth failure; logout in system tray
+- Extracted permissions and onboarding into separate modal windows
 
 ## [1.5.2] - 2026-03-17
 

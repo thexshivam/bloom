@@ -29,6 +29,9 @@ let mainWindow = null;
 let cameraWindow = null;
 let historyWindow = null;
 let modalWindow = null;
+let displayPickerWindow = null;
+let pendingDisplayPickerResolve = null;
+let removeDisplayPickerParentListeners = null;
 let tray = null;
 let videodbService = null;
 let isShuttingDown = false;
@@ -44,7 +47,7 @@ function createMainWindow() {
   const { width: screenWidth, height: screenHeight } = primaryDisplay.workAreaSize;
 
   const barWidth = 940;
-  const windowHeight = 200;  // extra transparent space above bar for dropdowns/popovers
+  const windowHeight = 80;  // compact: 52px bar + margin + shadow headroom
   const marginBottom = 8;
 
   mainWindow = new BrowserWindow({
@@ -75,7 +78,140 @@ function createMainWindow() {
     app.dock.show();
   }
 
+  // Click-through: transparent area passes clicks to apps behind.
+  // Renderer toggles this off when mouse enters the bar element.
+  mainWindow.setIgnoreMouseEvents(true, { forward: true });
+
   mainWindow.loadFile(path.join(RENDERER_DIR, 'index.html'));
+}
+
+// ============================================================================
+// Display Picker (separate child window)
+// ============================================================================
+
+function resolveDisplayPicker(result) {
+  if (!pendingDisplayPickerResolve) return;
+  const resolve = pendingDisplayPickerResolve;
+  pendingDisplayPickerResolve = null;
+  resolve(result);
+}
+
+function detachDisplayPickerParentListeners() {
+  if (removeDisplayPickerParentListeners) {
+    removeDisplayPickerParentListeners();
+    removeDisplayPickerParentListeners = null;
+  }
+}
+
+function closeDisplayPicker(result = { cancelled: true }) {
+  resolveDisplayPicker(result);
+  detachDisplayPickerParentListeners();
+
+  if (displayPickerWindow && !displayPickerWindow.isDestroyed()) {
+    const w = displayPickerWindow;
+    displayPickerWindow = null;
+    w.close();
+  } else {
+    displayPickerWindow = null;
+  }
+}
+
+function openDisplayPicker(payload) {
+  if (!mainWindow || mainWindow.isDestroyed()) {
+    return Promise.resolve({ cancelled: true });
+  }
+
+  // Close any existing picker
+  closeDisplayPicker({ cancelled: true });
+
+  const { screen } = require('electron');
+  const displays = Array.isArray(payload?.displays) ? payload.displays : [];
+  const selectedDisplayId = payload?.selectedDisplayId || null;
+
+  // Compute bounds — position above the anchor pill
+  const itemHeight = 34;
+  const maxItems = 7;
+  const contentHeight = Math.max(40, Math.min(displays.length, maxItems) * itemHeight);
+  const width = Math.max(180, Math.min(Number(payload?.preferredWidth) || 220, 400));
+
+  const anchorRect = payload?.anchorRect || {};
+  const parentBounds = mainWindow.getBounds();
+  const anchorCenterX = parentBounds.x + (Number(anchorRect.x) || 0) + Math.round((Number(anchorRect.width) || 0) / 2);
+  const anchorTopY = parentBounds.y + (Number(anchorRect.y) || 0);
+
+  let x = Math.round(anchorCenterX - width / 2);
+  let y = Math.round(anchorTopY - contentHeight - 12);
+
+  // Clamp to screen work area
+  const nearest = screen.getDisplayNearestPoint({ x: anchorCenterX, y: anchorTopY });
+  const wa = nearest.workArea;
+  x = Math.max(wa.x + 8, Math.min(x, wa.x + wa.width - width - 8));
+  y = Math.max(wa.y + 8, Math.min(y, wa.y + wa.height - contentHeight - 8));
+
+  return new Promise((resolve) => {
+    pendingDisplayPickerResolve = resolve;
+
+    displayPickerWindow = new BrowserWindow({
+      width,
+      height: contentHeight,
+      x,
+      y,
+      frame: false,
+      transparent: true,
+      resizable: false,
+      movable: false,
+      minimizable: false,
+      maximizable: false,
+      fullscreenable: false,
+      skipTaskbar: true,
+      alwaysOnTop: true,
+      hasShadow: false,
+      focusable: true,
+      parent: mainWindow,
+      webPreferences: {
+        preload: PRELOAD_SCRIPT,
+        contextIsolation: true,
+        nodeIntegration: false,
+      },
+    });
+
+    // Close picker when parent moves/hides
+    const onParentChange = () => closeDisplayPicker({ cancelled: true });
+    mainWindow.on('move', onParentChange);
+    mainWindow.on('resize', onParentChange);
+    mainWindow.on('hide', onParentChange);
+    mainWindow.on('closed', onParentChange);
+
+    removeDisplayPickerParentListeners = () => {
+      if (!mainWindow || mainWindow.isDestroyed()) return;
+      mainWindow.off('move', onParentChange);
+      mainWindow.off('resize', onParentChange);
+      mainWindow.off('hide', onParentChange);
+      mainWindow.off('closed', onParentChange);
+    };
+
+    displayPickerWindow.on('blur', () => closeDisplayPicker({ cancelled: true }));
+
+    // Guard: only clean up if this is still the current picker (prevents
+    // race when fast clicks create a new picker before the old one's
+    // 'closed' event fires).
+    const thisWindow = displayPickerWindow;
+    displayPickerWindow.on('closed', () => {
+      if (displayPickerWindow === thisWindow) {
+        displayPickerWindow = null;
+        detachDisplayPickerParentListeners();
+        resolveDisplayPicker({ cancelled: true });
+      }
+    });
+
+    displayPickerWindow.loadFile(path.join(RENDERER_DIR, 'display-picker.html'));
+    displayPickerWindow.webContents.once('did-finish-load', () => {
+      if (!displayPickerWindow || displayPickerWindow.isDestroyed()) return;
+      displayPickerWindow.webContents.send('display-picker:init', { displays, selectedDisplayId });
+      displayPickerWindow.show();
+      displayPickerWindow.focus();
+    });
+  });
 }
 
 function createCameraWindow() {
@@ -256,6 +392,18 @@ function updateTrayMenu() {
         }
       },
     },
+    {
+      label: 'Logout',
+      click: () => {
+        if (mainWindow && !mainWindow.isDestroyed()) {
+          mainWindow.webContents.executeJavaScript(`
+            window.configAPI.logout().then(() => {
+              window.recorderAPI.showOnboardingModal();
+            });
+          `);
+        }
+      },
+    },
     { type: 'separator' },
     {
       label: 'Quit',
@@ -430,6 +578,33 @@ app.whenReady().then(async () => {
     }
   });
 
+  // Display picker
+  ipcMain.handle('open-display-picker', async (_event, payload) => {
+    return openDisplayPicker(payload || {});
+  });
+
+  ipcMain.on('display-picker:select', (event, selection) => {
+    if (!displayPickerWindow || displayPickerWindow.isDestroyed()) return;
+    if (event.sender !== displayPickerWindow.webContents) return;
+    closeDisplayPicker({ cancelled: false, id: selection?.id, name: selection?.name });
+  });
+
+  ipcMain.on('display-picker:cancel', (event) => {
+    if (!displayPickerWindow || displayPickerWindow.isDestroyed()) return;
+    if (event.sender !== displayPickerWindow.webContents) return;
+    closeDisplayPicker({ cancelled: true });
+  });
+
+  // Click-through toggle — renderer calls this on mouseenter/mouseleave
+  ipcMain.on('set-ignore-mouse', (_event, ignore) => {
+    if (!mainWindow || mainWindow.isDestroyed()) return;
+    if (ignore) {
+      mainWindow.setIgnoreMouseEvents(true, { forward: true });
+    } else {
+      mainWindow.setIgnoreMouseEvents(false);
+    }
+  });
+
   ipcMain.on('hide-bar', () => {
     if (mainWindow && !mainWindow.isDestroyed()) {
       mainWindow.hide();
@@ -469,6 +644,7 @@ app.on('window-all-closed', async () => {
 });
 
 app.on('before-quit', async (event) => {
+  closeDisplayPicker({ cancelled: true });
   if (!isShuttingDown) {
     event.preventDefault();
     await stopServices();

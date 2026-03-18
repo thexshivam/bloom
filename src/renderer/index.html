@@ -24,14 +24,13 @@
         body {
             font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
             color: #f7f7f7;
-            -webkit-app-region: drag;
             text-align: center;
             display: flex;
             flex-direction: column;
             justify-content: flex-end;
         }
 
-        button, input, .display-dropdown {
+        button, input {
             -webkit-app-region: no-drag;
         }
 
@@ -39,20 +38,19 @@
            Floating Bar
            =========================================== */
         .floating-bar {
+            -webkit-app-region: drag;
             display: inline-flex;
             align-items: center;
             padding: 8px 12px;
             gap: 6px;
             height: 52px;
             margin: 0 auto 6px;
-            background: rgba(30, 30, 30, 0.92);
+            background: rgba(20, 20, 20, 0.95);
             backdrop-filter: blur(24px);
             -webkit-backdrop-filter: blur(24px);
-            border: 1px solid rgba(255, 255, 255, 0.08);
+            border: none;
             border-radius: 14px;
-            box-shadow:
-                0 2px 8px rgba(0, 0, 0, 0.2),
-                0 12px 40px rgba(0, 0, 0, 0.15);
+            box-shadow: none;
             transition: all 0.3s ease;
         }
 
@@ -135,7 +133,7 @@
 
         .source-pill .source-label {
             font-size: 12.5px;
-            font-weight: 500;
+            font-weight: 450;
             line-height: 1;
             letter-spacing: -0.02em;
             color: #969696;
@@ -150,10 +148,6 @@
 
         .source-pill.active .source-label {
             color: #FFFFFF;
-        }
-
-        .source-pill.active {
-            background: rgba(255, 255, 255, 0.06);
         }
 
         .source-pill.disabled {
@@ -193,7 +187,7 @@
 
         .display-pill .display-label {
             font-size: 12.5px;
-            font-weight: 500;
+            font-weight: 450;
             line-height: 1;
             letter-spacing: -0.02em;
             color: #FFFFFF;
@@ -222,63 +216,6 @@
         .display-selector {
             position: relative;
             flex-shrink: 0;
-        }
-
-        .display-dropdown {
-            display: none;
-            position: absolute;
-            bottom: calc(100% + 8px);
-            left: 50%;
-            transform: translateX(-50%);
-            background: rgba(36, 36, 36, 0.95);
-            backdrop-filter: blur(24px);
-            -webkit-backdrop-filter: blur(24px);
-            border: 1px solid rgba(255, 255, 255, 0.12);
-            border-radius: 10px;
-            min-width: 180px;
-            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.45);
-            z-index: 100;
-            overflow: hidden;
-            flex-direction: column;
-            -webkit-app-region: no-drag;
-        }
-
-        .display-dropdown.visible {
-            display: flex;
-        }
-
-        .display-dropdown-item {
-            padding: 8px 14px;
-            color: #969696;
-            font-size: 12.5px;
-            font-weight: 500;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            transition: background 0.15s;
-            background: none;
-            border: none;
-            width: 100%;
-            text-align: left;
-            font-family: inherit;
-            white-space: nowrap;
-        }
-
-        .display-dropdown-item:hover {
-            background: rgba(255, 255, 255, 0.06);
-            color: #f7f7f7;
-        }
-
-        .display-dropdown-item.selected {
-            color: #FFFFFF;
-        }
-
-        .display-dropdown-item .check-mark {
-            width: 14px;
-            flex-shrink: 0;
-            text-align: center;
-            color: #FF4000;
         }
 
         /* ===========================================
@@ -322,19 +259,23 @@
 
         .record-btn.loading {
             pointer-events: none;
-            position: relative;
-            color: transparent;
+            background: #D4A017;
+            box-shadow: 0 1px 8px rgba(212, 160, 23, 0.15);
         }
 
-        .record-btn.loading::after {
-            content: "";
-            position: absolute;
-            width: 16px;
-            height: 16px;
-            border: 2px solid #fff;
+        .record-btn .btn-spinner {
+            display: none;
+            width: 14px;
+            height: 14px;
+            border: 2px solid rgba(255, 255, 255, 0.4);
             border-radius: 50%;
-            border-top-color: transparent;
+            border-top-color: #fff;
             animation: spin 0.8s linear infinite;
+            flex-shrink: 0;
+        }
+
+        .record-btn.loading .btn-spinner {
+            display: block;
         }
 
 
@@ -366,10 +307,6 @@
             animation: pulse 1s infinite;
         }
 
-        .status-badge.starting {
-            color: #f59e0b;
-            background: rgba(245, 158, 11, 0.15);
-        }
 
         /* ===========================================
            Rename Row (inline, shown after recording)
@@ -433,11 +370,9 @@
             gap: 8px;
             height: 52px;
             border-radius: 14px;
-            background: rgba(36, 36, 36, 0.92);
-            border: 1px solid #3C3C3C;
-            box-shadow:
-                0 2px 8px rgba(0, 0, 0, 0.2),
-                0 12px 40px rgba(0, 0, 0, 0.25);
+            background: rgba(20, 20, 20, 0.95);
+            border: none;
+            box-shadow: none;
         }
 
         .floating-bar.recording .bar-close,
@@ -471,10 +406,9 @@
             cursor: pointer;
         }
 
-        /* Display pill: icon-only in recording (hide label, chevron, dropdown) */
+        /* Display pill: icon-only in recording (hide label, chevron) */
         .floating-bar.recording .display-label,
-        .floating-bar.recording .chevron-icon,
-        .floating-bar.recording .display-dropdown {
+        .floating-bar.recording .chevron-icon {
             display: none !important;
         }
 
@@ -569,6 +503,37 @@
         }
 
         /* ===========================================
+           Tooltips
+           =========================================== */
+        [data-tooltip] {
+            position: relative;
+        }
+
+        [data-tooltip]::after {
+            content: attr(data-tooltip);
+            position: absolute;
+            bottom: calc(100% + 6px);
+            left: 50%;
+            transform: translateX(-50%);
+            padding: 4px 8px;
+            background: rgba(0, 0, 0, 0.85);
+            color: #e0e0e0;
+            font-size: 11px;
+            font-weight: 500;
+            line-height: 1.3;
+            white-space: nowrap;
+            border-radius: 6px;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.15s;
+            -webkit-app-region: no-drag;
+        }
+
+        [data-tooltip]:hover::after {
+            opacity: 1;
+        }
+
+        /* ===========================================
            Utility
            =========================================== */
         .hidden { display: none !important; }
@@ -579,7 +544,7 @@
     <div id="mainApp" class="floating-bar">
 
         <!-- Close Button -->
-        <button id="btn-close" class="bar-close" title="Hide bar">
+        <button id="btn-close" class="bar-close" data-tooltip="Hide bar">
             <img src="img/cancel.png" alt="Close" width="24" height="24">
         </button>
 
@@ -587,17 +552,17 @@
 
         <!-- Source Toggles -->
         <div class="bar-sources">
-            <button id="toggle-camera" class="source-pill" data-source="camera">
+            <button id="toggle-camera" class="source-pill" data-source="camera" data-tooltip="Camera">
                 <img class="source-icon" src="img/camera_off.png" data-off="img/camera_off.png" data-on="img/camera_on.png" width="16" height="16" alt="">
                 <span class="source-label" data-off="No camera" data-on="Camera">No camera</span>
             </button>
-            <button id="toggle-mic" class="source-pill" data-source="mic">
+            <button id="toggle-mic" class="source-pill" data-source="mic" data-tooltip="Microphone">
                 <img class="source-icon" src="img/mic_off.png" data-off="img/mic_off.png" data-on="img/mic_on.png" width="16" height="16" alt="">
-                <span class="source-label" data-off="No mic" data-on="Mic">loading...</span>
+                <span class="source-label" data-on="Mic">loading...</span>
             </button>
-            <button id="toggle-audio" class="source-pill" data-source="audio">
+            <button id="toggle-audio" class="source-pill" data-source="audio" data-tooltip="System Audio">
                 <img class="source-icon" src="img/audio_off.png" data-off="img/audio_off.png" data-on="img/audio_on.png" width="16" height="16" alt="">
-                <span class="source-label" data-off="No audio" data-on="Audio">loading...</span>
+                <span class="source-label" data-on="Audio">loading...</span>
             </button>
         </div>
 
@@ -612,7 +577,6 @@
                     <path d="M5 7.5L10 12.5L15 7.5" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
                 </svg>
             </button>
-            <div id="displayDropdown" class="display-dropdown"></div>
         </div>
 
         <!-- Status Badge (hidden default, shown during recording) -->
@@ -622,13 +586,14 @@
         </div>
 
         <!-- Record / Stop / Delete -->
-        <button id="btn-start-session" class="record-btn" title="Start Recording">
-            <span>Start Recording</span>
+        <button id="btn-start-session" class="record-btn">
+            <div class="btn-spinner"></div>
+            <span class="btn-label">Start Recording</span>
         </button>
-        <button id="btn-stop-session" class="bar-action-btn hidden" title="Stop Recording">
+        <button id="btn-stop-session" class="bar-action-btn hidden" data-tooltip="Stop Recording">
             <img src="img/stop.png" alt="Stop">
         </button>
-        <button id="btn-delete-session" class="bar-action-btn disabled hidden" title="Discard recording">
+        <button id="btn-delete-session" class="bar-action-btn disabled hidden" data-tooltip="Discard">
             <svg viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
                 <path d="M15.5 4.5H13V3.5C13 3.102 12.842 2.72 12.561 2.439C12.28 2.158 11.898 2 11.5 2H8.5C8.102 2 7.72 2.158 7.439 2.439C7.158 2.72 7 3.102 7 3.5V4.5H4.5C4.367 4.5 4.24 4.553 4.146 4.646C4.053 4.74 4 4.867 4 5C4 5.133 4.053 5.26 4.146 5.354C4.24 5.447 4.367 5.5 4.5 5.5H5V15C5 15.265 5.105 15.52 5.293 15.707C5.48 15.895 5.735 16 6 16H14C14.265 16 14.52 15.895 14.707 15.707C14.895 15.52 15 15.265 15 15V5.5H15.5C15.633 5.5 15.76 5.447 15.854 5.354C15.947 5.26 16 5.133 16 5C16 4.867 15.947 4.74 15.854 4.646C15.76 4.553 15.633 4.5 15.5 4.5ZM8 3.5C8 3.367 8.053 3.24 8.146 3.146C8.24 3.053 8.367 3 8.5 3H11.5C11.633 3 11.76 3.053 11.854 3.146C11.947 3.24 12 3.367 12 3.5V4.5H8V3.5ZM14 15H6V5.5H14V15ZM8.5 8V12.5C8.5 12.633 8.447 12.76 8.354 12.854C8.26 12.947 8.133 13 8 13C7.867 13 7.74 12.947 7.646 12.854C7.553 12.76 7.5 12.633 7.5 12.5V8C7.5 7.867 7.553 7.74 7.646 7.646C7.74 7.553 7.867 7.5 8 7.5C8.133 7.5 8.26 7.553 8.354 7.646C8.447 7.74 8.5 7.867 8.5 8ZM12.5 8V12.5C12.5 12.633 12.447 12.76 12.354 12.854C12.26 12.947 12.133 13 12 13C11.867 13 11.74 12.947 11.646 12.854C11.553 12.76 11.5 12.633 11.5 12.5V8C11.5 7.867 11.553 7.74 11.646 7.646C11.74 7.553 11.867 7.5 12 7.5C12.133 7.5 12.26 7.553 12.354 7.646C12.447 7.74 12.5 7.867 12.5 8Z" fill="white"/>
             </svg>
@@ -637,7 +602,7 @@
         <!-- Rename Row (hidden, shown after recording stops) -->
         <div id="renameRow" class="bar-rename hidden">
             <input type="text" id="renameInput" class="rename-input" placeholder="Name this recording..." maxlength="100">
-            <button id="renameSaveBtn" class="rename-save" title="Save">&#10003;</button>
+            <button id="renameSaveBtn" class="rename-save" data-tooltip="Save">&#10003;</button>
         </div>
 
     </div>

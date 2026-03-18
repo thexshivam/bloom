@@ -26,9 +26,14 @@ contextBridge.exposeInMainWorld('recorderAPI', {
     showPermissionsModal: () => ipcRenderer.invoke('show-permissions-modal'),
     showOnboardingModal: () => ipcRenderer.invoke('show-onboarding-modal'),
     modalComplete: (result) => ipcRenderer.send('modal-complete', result),
+    setIgnoreMouse: (ignore) => ipcRenderer.send('set-ignore-mouse', ignore),
     hideBar: () => ipcRenderer.send('hide-bar'),
     notifyRecordingState: (recording) => ipcRenderer.send('recording-state-changed', recording),
     showNotification: (title, body) => ipcRenderer.send('show-notification', { title, body }),
+    openDisplayPicker: (payload) => ipcRenderer.invoke('open-display-picker', payload),
+    onDisplayPickerInit: (callback) => ipcRenderer.on('display-picker:init', (_event, data) => callback(data)),
+    selectDisplayFromPicker: (selection) => ipcRenderer.send('display-picker:select', selection),
+    cancelDisplayPicker: () => ipcRenderer.send('display-picker:cancel'),
 });
 
 // Config API

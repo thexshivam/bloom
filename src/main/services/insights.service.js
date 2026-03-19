@@ -1,18 +1,16 @@
 'use strict';
 
-const { connect } = require('videodb');
+const { connect, SubtitleAlignment } = require('videodb');
 
-// Subtitle style matching the Python LOOM_SUBTITLE_STYLE config
 const SUBTITLE_STYLE = {
   fontSize: 14,
   fontName: 'Roboto',
   bold: false,
-  fontColor: '#FFFFFF',
-  backgroundColor: '#000000',
-  backgroundAlpha: 0.5,
-  alignment: 'bottom_center',
-  marginBottom: 30,
-  borderStyle: 'opaque_box',
+  primaryColour: '&H00FFFFFF',
+  backColour: '&H80000000',
+  alignment: SubtitleAlignment.bottomCenter,
+  marginV: 30,
+  borderStyle: 3,
   outline: 2,
   shadow: 0,
 };

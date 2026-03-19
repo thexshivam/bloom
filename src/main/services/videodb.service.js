@@ -124,6 +124,33 @@ class VideoDBService {
   }
 
   /**
+   * Get a temporary download URL for a video.
+   * @param {string} apiKey
+   * @param {string} videoId
+   * @returns {Promise<{url: string, name: string}>}
+   */
+  async getVideoDownloadUrl(apiKey, videoId) {
+    const conn = this._getConnection(apiKey);
+    const coll = await conn.getCollection();
+    const video = await coll.getVideo(videoId);
+    const result = await video.download();
+    return { url: result.url || result.downloadUrl, name: result.name || `${videoId}.mp4` };
+  }
+
+  /**
+   * Get the full transcript text for a video.
+   * @param {string} apiKey
+   * @param {string} videoId
+   * @returns {Promise<string>}
+   */
+  async getTranscriptText(apiKey, videoId) {
+    const conn = this._getConnection(apiKey);
+    const coll = await conn.getCollection();
+    const video = await coll.getVideo(videoId);
+    return await video.getTranscriptText();
+  }
+
+  /**
    * Clear all cached connections (e.g. on logout).
    */
   clearAll() {

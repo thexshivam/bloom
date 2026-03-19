@@ -1,306 +1,508 @@
 <!DOCTYPE html>
-<html data-theme="dark">
+<html>
 
 <head>
     <meta charset="UTF-8">
-    <title>Permissions — Async Recorder</title>
-    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+    <title>Permissions</title>
+    <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
     <style>
-        /* Theme Variables */
-        [data-theme="dark"] {
-            --bg-primary: #0c0c0d;
-            --bg-secondary: #151515;
-            --bg-surface: #1b1b21;
-            --bg-hover: #242424;
-            --border: #2d2d2d;
-            --border-light: #44454c;
-            --text-primary: #f7f7f7;
-            --text-secondary: #969696;
-            --text-muted: #525252;
-            --accent: #ff4d00;
-            --accent-hover: #ff9061;
-            --success: #22c55e;
-            --error: #ef4444;
-            --info: #8cdeff;
-        }
-
-        [data-theme="light"] {
-            --bg-primary: #faf9f7;
-            --bg-secondary: #ffffff;
-            --bg-surface: #f0eeeb;
-            --bg-hover: #e6e4e0;
-            --border: #d9d6d0;
-            --border-light: #c9c5be;
-            --text-primary: #0c0c0d;
-            --text-secondary: #4d4d4d;
-            --text-muted: #919191;
-            --accent: #e25612;
-            --accent-hover: #c14103;
-            --success: #16a34a;
-            --error: #dc2626;
-            --info: #2563eb;
-        }
-
         * { box-sizing: border-box; margin: 0; padding: 0; }
 
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-            background-color: var(--bg-primary);
-            color: var(--text-primary);
-            overflow: hidden;
-            -webkit-app-region: drag;
-        }
-
-        button { -webkit-app-region: no-drag; }
-
-        .container {
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            height: 100vh;
-            padding: 32px;
-        }
-
-        .modal-title {
-            font-size: 22px;
-            font-weight: 700;
-            margin-bottom: 8px;
-            color: var(--text-primary);
-            text-align: center;
-        }
-
-        .modal-subtitle {
-            font-size: 13px;
-            color: var(--text-muted);
-            margin-bottom: 24px;
-            line-height: 1.5;
-            text-align: center;
-        }
-
-        .permission-list {
-            display: flex;
-            flex-direction: column;
-            gap: 12px;
-            margin: 0 0 16px;
-            text-align: left;
+        html, body {
             width: 100%;
-            max-width: 400px;
+            height: 100%;
+            background: #08090C;
+            color: #f7f7f7;
+            font-family: 'Open Sans', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            overflow: hidden;
         }
 
-        .permission-item {
+        body {
             display: flex;
-            align-items: center;
-            justify-content: space-between;
-            background: var(--bg-surface);
-            padding: 14px;
-            border-radius: 8px;
-            border: 1px solid var(--border);
+            flex-direction: column;
         }
 
-        .permission-info {
+        /* -- Titlebar drag region -- */
+        .titlebar {
+            height: 52px;
             display: flex;
-            align-items: center;
-            gap: 12px;
+            align-items: flex-start;
+            justify-content: center;
+            -webkit-app-region: drag;
+            flex-shrink: 0;
+            padding-top: 18px;
         }
 
-        .permission-icon {
-            font-size: 20px;
-            width: 32px;
-            height: 32px;
+        .titlebar-label {
+            font-size: 13px;
+            font-weight: 600;
+            color: rgba(255, 255, 255, 0.5);
+        }
+
+        /* -- Step tabs (button-style) -- */
+        .step-tabs {
+            display: flex;
+            gap: 2px;
+            padding: 0 48px;
+            flex-shrink: 0;
+            justify-content: center;
+            background: #0E0F14;
+            margin: 0 0 1px;
+        }
+
+        .step-tab {
+            flex: 1;
             display: flex;
             align-items: center;
             justify-content: center;
-            background: var(--bg-hover);
+            gap: 8px;
+            padding: 12px 16px;
+            cursor: default;
+            background: #14151C;
+            transition: background 0.2s, opacity 0.2s;
+        }
+
+        .step-tab:first-child {
+            border-radius: 0 0 0 10px;
+        }
+
+        .step-tab:last-child {
+            border-radius: 0 0 10px 0;
+        }
+
+        .step-tab.locked {
+            opacity: 0.35;
+        }
+
+        .step-tab.active {
+            background: #1A1B24;
+        }
+
+        .step-tab.done {
+            background: rgba(34, 197, 94, 0.08);
+        }
+
+        .step-indicator {
+            width: 22px;
+            height: 22px;
             border-radius: 50%;
-            color: var(--text-muted);
-        }
-
-        .permission-text h3 {
-            margin: 0 0 2px;
-            font-size: 13px;
-            color: var(--text-primary);
-            font-weight: 500;
-        }
-
-        .permission-text p {
-            margin: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
             font-size: 11px;
-            color: var(--text-muted);
+            font-weight: 600;
+            flex-shrink: 0;
         }
 
-        .perm-btn {
-            background: var(--info);
+        .step-tab.locked .step-indicator {
+            background: #1E1F28;
+            color: #525252;
+        }
+
+        .step-tab.active .step-indicator {
+            background: #EC5B16;
             color: #fff;
-            padding: 7px 14px;
-            border-radius: 6px;
+        }
+
+        .step-tab.done .step-indicator {
+            background: #22c55e;
+            color: #fff;
+        }
+
+        .step-label {
+            font-size: 13px;
+            font-weight: 500;
+            color: #f7f7f7;
+        }
+
+        .step-tab.locked .step-label {
+            color: #525252;
+        }
+
+        .step-tab.done .step-label {
+            color: #22c55e;
+        }
+
+        /* -- Content area -- */
+        .step-content {
+            flex: 1;
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 20px 32px;
+            gap: 0;
+            min-height: 0;
+        }
+
+        .step-content.active {
+            display: flex;
+        }
+
+        .step-icon {
+            font-size: 44px;
+            color: #969696;
+            margin-bottom: 16px;
+        }
+
+        .step-title {
+            font-size: 18px;
+            font-weight: 600;
+            color: #f7f7f7;
+            margin-bottom: 6px;
+            text-align: center;
+        }
+
+        .step-subtitle {
+            font-size: 13px;
+            color: #525252;
+            text-align: center;
+            line-height: 1.5;
+            max-width: 340px;
+            margin-bottom: 20px;
+        }
+
+        /* -- Preview area -- */
+        .gif-preview {
+            width: 100%;
+            max-width: 460px;
+            aspect-ratio: 3 / 2;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 24px;
+            overflow: hidden;
+        }
+
+        .gif-preview img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            border-radius: 10px;
+            opacity: 0;
+            animation: fadeIn 0.6s ease forwards;
+        }
+
+        @keyframes fadeIn {
+            to { opacity: 1; }
+        }
+
+        .gif-placeholder {
+            font-size: 12px;
+            color: #525252;
+        }
+
+        /* -- Action button -- */
+        .btn-grant {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 28px;
+            background: #EC5B16;
+            color: #fff;
             border: none;
-            font-size: 12px;
-            cursor: pointer;
-            transition: background 0.2s;
+            border-radius: 8px;
+            font-size: 13px;
+            font-weight: 600;
             font-family: inherit;
-            white-space: nowrap;
+            cursor: pointer;
+            transition: background 0.15s, opacity 0.15s;
+            -webkit-app-region: no-drag;
         }
 
-        .perm-btn:hover { background: #2563eb; }
-
-        .perm-btn.granted {
-            background: var(--success);
-            pointer-events: none;
+        .btn-grant:hover {
+            background: #D4500F;
         }
 
-        .error-message {
-            color: var(--error);
+        .btn-grant:disabled {
+            opacity: 0.5;
+            cursor: default;
+        }
+
+        .btn-grant.granted {
+            background: #22c55e;
+            cursor: default;
+        }
+
+        .btn-grant .material-icons-round {
+            font-size: 18px;
+        }
+
+        /* Spinner inside button */
+        .btn-grant .btn-spinner {
+            width: 16px;
+            height: 16px;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-top-color: #fff;
+            border-radius: 50%;
+            animation: spin 0.6s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        /* -- Error message -- */
+        .error-msg {
             font-size: 12px;
+            color: #EF3535;
             min-height: 18px;
             text-align: center;
-            width: 100%;
-            max-width: 400px;
+            margin-top: 12px;
+            max-width: 360px;
+        }
+
+        /* -- All done state -- */
+        .all-done {
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            flex: 1;
+            gap: 12px;
+        }
+
+        .all-done.active {
+            display: flex;
+        }
+
+        .all-done .step-icon {
+            color: #22c55e;
+        }
+
+        .all-done .step-title {
+            color: #22c55e;
         }
     </style>
 </head>
 
 <body>
-    <div class="container">
-        <div class="modal-title">Permissions Required</div>
-        <div class="modal-subtitle">App requires microphone and screen access.</div>
-        <div class="permission-list">
-            <div class="permission-item">
-                <div class="permission-info">
-                    <div class="permission-icon"><span class="material-icons">mic</span></div>
-                    <div class="permission-text">
-                        <h3>Microphone</h3>
-                        <p>Required to capture audio from meetings.</p>
-                    </div>
-                </div>
-                <button class="perm-btn" id="btn-grant-mic">Grant Access</button>
-            </div>
-            <div class="permission-item">
-                <div class="permission-info">
-                    <div class="permission-icon"><span class="material-icons">monitor</span></div>
-                    <div class="permission-text">
-                        <h3>Screen Recording</h3>
-                        <p>Required to record meeting video.</p>
-                    </div>
-                </div>
-                <button class="perm-btn" id="btn-grant-screen">Grant Access</button>
-            </div>
+    <div class="titlebar">
+        <span class="titlebar-label">Permissions</span>
+    </div>
+
+    <!-- Step tabs -->
+    <div class="step-tabs">
+        <div class="step-tab active" id="tabMic">
+            <span class="step-indicator" id="tabMicIndicator">1</span>
+            <span class="step-label">Microphone</span>
         </div>
-        <div class="error-message" id="permissionError"></div>
+        <div class="step-tab locked" id="tabScreen">
+            <span class="step-indicator" id="tabScreenIndicator">2</span>
+            <span class="step-label">Screen Recording</span>
+        </div>
+    </div>
+
+    <!-- Step 1: Microphone -->
+    <div class="step-content active" id="contentMic">
+        <span class="material-icons-round step-icon">mic</span>
+        <div class="step-title">Microphone Access</div>
+        <div class="step-subtitle">
+            Async Recorder needs microphone access to capture audio from your meetings and recordings.
+        </div>
+        <div class="gif-preview" id="gifMic">
+            <img src="img/mic_default.webp" alt="How to grant mic access">
+        </div>
+        <button class="btn-grant" id="btnMic">
+            <span class="material-icons-round">mic</span>
+            <span id="btnMicLabel">Grant Mic Access</span>
+        </button>
+        <div class="error-msg" id="errorMic"></div>
+    </div>
+
+    <!-- Step 2: Screen Recording -->
+    <div class="step-content" id="contentScreen">
+        <span class="material-icons-round step-icon">screen_share</span>
+        <div class="step-title">Screen Recording Access</div>
+        <div class="step-subtitle">
+            Async Recorder needs screen recording access to capture your screen during recording sessions.
+        </div>
+        <div class="gif-preview" id="gifScreen">
+            <img id="screenPreviewImg" src="img/screen_default.webp" alt="How to grant screen access">
+        </div>
+        <button class="btn-grant" id="btnScreen">
+            <span class="material-icons-round">screen_share</span>
+            <span id="btnScreenLabel">Grant Screen Access</span>
+        </button>
+        <div class="error-msg" id="errorScreen"></div>
+    </div>
+
+    <!-- All Done -->
+    <div class="all-done" id="allDone">
+        <span class="material-icons-round step-icon">check_circle</span>
+        <div class="step-title">All Permissions Granted</div>
+        <div class="step-subtitle">You're all set. This window will close automatically.</div>
     </div>
 
     <script type="module">
         import { permissionUtil } from './utils/permissions.js';
 
-        const btnMic = document.getElementById('btn-grant-mic');
-        const btnScreen = document.getElementById('btn-grant-screen');
-        const errorMsg = document.getElementById('permissionError');
+        // Elements
+        const tabMic = document.getElementById('tabMic');
+        const tabScreen = document.getElementById('tabScreen');
+        const tabMicIndicator = document.getElementById('tabMicIndicator');
+        const tabScreenIndicator = document.getElementById('tabScreenIndicator');
 
-        const updateItemUI = (btn, granted) => {
-            if (granted) {
-                btn.textContent = 'Granted';
-                btn.classList.add('granted');
-                btn.disabled = true;
-            } else {
-                btn.textContent = 'Grant Access';
-                btn.classList.remove('granted');
-                btn.disabled = false;
+        const contentMic = document.getElementById('contentMic');
+        const contentScreen = document.getElementById('contentScreen');
+        const allDone = document.getElementById('allDone');
+
+        const btnMic = document.getElementById('btnMic');
+        const btnMicLabel = document.getElementById('btnMicLabel');
+        const errorMic = document.getElementById('errorMic');
+
+        const btnScreen = document.getElementById('btnScreen');
+        const btnScreenLabel = document.getElementById('btnScreenLabel');
+        const errorScreen = document.getElementById('errorScreen');
+        const screenPreviewImg = document.getElementById('screenPreviewImg');
+
+        let micGranted = false;
+        let screenGranted = false;
+
+        function setStep(step) {
+            // Tab states
+            if (step === 'mic') {
+                tabMic.className = 'step-tab active';
+                tabScreen.className = micGranted ? 'step-tab' : 'step-tab locked';
+                contentMic.classList.add('active');
+                contentScreen.classList.remove('active');
+                allDone.classList.remove('active');
+            } else if (step === 'screen') {
+                tabMic.className = 'step-tab done';
+                tabScreen.className = 'step-tab active';
+                contentMic.classList.remove('active');
+                contentScreen.classList.add('active');
+                allDone.classList.remove('active');
+            } else if (step === 'done') {
+                tabMic.className = 'step-tab done';
+                tabScreen.className = 'step-tab done';
+                contentMic.classList.remove('active');
+                contentScreen.classList.remove('active');
+                allDone.classList.add('active');
             }
-        };
 
-        const updateUI = async () => {
-            const micStatus = await permissionUtil.check('mic');
-            const screenStatus = await permissionUtil.check('screen');
+            // Indicators
+            if (micGranted) {
+                tabMicIndicator.innerHTML = '<span class="material-icons-round" style="font-size:14px">check</span>';
+            } else {
+                tabMicIndicator.textContent = '1';
+            }
 
-            updateItemUI(btnMic, micStatus.granted);
-            updateItemUI(btnScreen, screenStatus.granted);
+            if (screenGranted) {
+                tabScreenIndicator.innerHTML = '<span class="material-icons-round" style="font-size:14px">check</span>';
+            } else {
+                tabScreenIndicator.textContent = '2';
+            }
+        }
 
-            const allGranted = micStatus.granted && screenStatus.granted;
-            if (allGranted) {
-                window.recorderAPI.modalComplete({ type: 'permissions', success: true });
+        async function checkPermissions() {
+            const mic = await permissionUtil.check('mic');
+            const screen = await permissionUtil.check('screen');
+            micGranted = mic.granted;
+            screenGranted = screen.granted;
+
+            if (micGranted && screenGranted) {
+                setStep('done');
+                setTimeout(() => {
+                    window.recorderAPI.modalComplete({ type: 'permissions', success: true });
+                }, 1200);
                 return true;
             }
+            if (micGranted) {
+                btnMic.classList.add('granted');
+                btnMicLabel.textContent = 'Granted';
+                btnMic.disabled = true;
+                setStep('screen');
+            } else {
+                setStep('mic');
+            }
             return false;
-        };
+        }
 
+        // Mic button
         btnMic.addEventListener('click', async () => {
-            if (btnMic.textContent === 'Open Settings') {
-                const result = await window.recorderAPI.openSystemSettings('mic');
-                if (!result || !result.success) {
-                    errorMsg.textContent = 'Go to System Settings -> Privacy & Security -> Microphone to enable access.';
-                }
+            if (btnMicLabel.textContent === 'Open Settings') {
+                await window.recorderAPI.openSystemSettings('mic');
                 return;
             }
 
             try {
                 btnMic.disabled = true;
-                btnMic.textContent = 'Requesting...';
-                errorMsg.textContent = '';
+                btnMicLabel.textContent = 'Requesting...';
+                errorMic.textContent = '';
 
                 await permissionUtil.request('mic');
-                const done = await updateUI();
+                const mic = await permissionUtil.check('mic');
+                micGranted = mic.granted;
 
-                if (!done) {
+                if (micGranted) {
+                    btnMic.classList.add('granted');
+                    btnMicLabel.textContent = 'Granted';
+                    // Advance to step 2 after brief pause
+                    setTimeout(() => setStep('screen'), 600);
+                } else {
                     btnMic.disabled = false;
-                    btnMic.textContent = 'Open Settings';
-                    btnMic.classList.remove('granted');
-                    errorMsg.textContent = 'Permission denied. Opening System Settings...';
-                    const result = await window.recorderAPI.openSystemSettings('mic');
-                    if (!result || !result.success) {
-                        errorMsg.textContent = 'Go to System Settings -> Privacy & Security -> Microphone to enable access.';
-                    }
+                    btnMicLabel.textContent = 'Open Settings';
+                    errorMic.textContent = 'Permission denied. Click to open System Settings.';
+                    await window.recorderAPI.openSystemSettings('mic');
                 }
             } catch (e) {
                 btnMic.disabled = false;
-                btnMic.textContent = 'Open Settings';
-                errorMsg.textContent = 'Error: ' + e.message;
+                btnMicLabel.textContent = 'Open Settings';
+                errorMic.textContent = 'Error: ' + e.message;
             }
         });
 
+        // Screen button
         btnScreen.addEventListener('click', async () => {
-            if (btnScreen.textContent === 'Open Settings') {
-                const result = await window.recorderAPI.openSystemSettings('screen');
-                if (!result || !result.success) {
-                    errorMsg.textContent = 'Go to System Settings -> Privacy & Security -> Screen Recording to enable access.';
-                }
+            if (btnScreenLabel.textContent === 'Open Settings') {
+                await window.recorderAPI.openSystemSettings('screen');
                 return;
             }
 
             try {
                 btnScreen.disabled = true;
-                btnScreen.textContent = 'Requesting...';
-                errorMsg.textContent = '';
+                btnScreenLabel.textContent = 'Requesting...';
+                errorScreen.textContent = '';
 
                 await permissionUtil.request('screen');
-                const done = await updateUI();
+                const screen = await permissionUtil.check('screen');
+                screenGranted = screen.granted;
 
-                if (!done) {
+                if (screenGranted) {
+                    btnScreen.classList.add('granted');
+                    btnScreenLabel.textContent = 'Granted';
+                    setStep('done');
+                    setTimeout(() => {
+                        window.recorderAPI.modalComplete({ type: 'permissions', success: true });
+                    }, 1200);
+                } else {
                     btnScreen.disabled = false;
-                    btnScreen.textContent = 'Open Settings';
-                    btnScreen.classList.remove('granted');
-                    errorMsg.textContent = 'Permission denied. Opening System Settings...';
-                    const result = await window.recorderAPI.openSystemSettings('screen');
-                    if (!result || !result.success) {
-                        errorMsg.textContent = 'Go to System Settings -> Privacy & Security -> Screen Recording to enable access.';
-                    }
+                    btnScreenLabel.textContent = 'Open Settings';
+                    errorScreen.textContent = 'Permission denied. Click to open System Settings.';
+                    if (screenPreviewImg) screenPreviewImg.src = 'img/screen_denied.webp';
+                    await window.recorderAPI.openSystemSettings('screen');
                 }
             } catch (e) {
                 btnScreen.disabled = false;
-                btnScreen.textContent = 'Open Settings';
-                errorMsg.textContent = 'Error: ' + e.message;
+                btnScreenLabel.textContent = 'Open Settings';
+                errorScreen.textContent = 'Error: ' + e.message;
+                if (screenPreviewImg) screenPreviewImg.src = 'img/screen_denied.webp';
             }
         });
 
         // Initial check
-        const allGranted = await updateUI();
+        const done = await checkPermissions();
 
-        // Poll for system setting changes
-        if (!allGranted) {
+        // Poll for system settings changes
+        if (!done) {
             const poller = setInterval(async () => {
                 if (document.hidden) return;
-                const done = await updateUI();
-                if (done) clearInterval(poller);
-            }, 1000);
+                const allDone = await checkPermissions();
+                if (allDone) clearInterval(poller);
+            }, 1500);
         }
     </script>
 </body>

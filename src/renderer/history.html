@@ -208,6 +208,104 @@
             flex-shrink: 0;
         }
 
+        /* ── Sort dropdown ── */
+        .sort-dropdown-wrap {
+            position: relative;
+        }
+
+        .sort-dropdown {
+            position: absolute;
+            top: calc(100% + 6px);
+            right: 0;
+            width: 224px;
+            background: #08090C;
+            border: 1px solid rgba(239, 239, 239, 0.05);
+            box-shadow: 0px 17px 17px rgba(0, 0, 0, 0.12), 0px 4px 9px rgba(0, 0, 0, 0.14);
+            border-radius: 12px;
+            padding: 8px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            opacity: 0;
+            transform: translateY(-4px);
+            pointer-events: none;
+            transition: opacity 0.15s ease, transform 0.15s ease;
+            z-index: 100;
+        }
+
+        .sort-dropdown.visible {
+            opacity: 1;
+            transform: translateY(0);
+            pointer-events: auto;
+        }
+
+        .sort-section-header {
+            display: flex;
+            align-items: center;
+            padding: 8px 10px;
+            height: 36px;
+            background: rgba(239, 239, 239, 0.1);
+            border-radius: 10px;
+            color: #fff;
+            font-size: 14px;
+            font-weight: 500;
+        }
+
+        .sort-options {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+        }
+
+        .sort-option {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 10px;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: background 0.12s;
+            border: none;
+            background: none;
+            width: 100%;
+            text-align: left;
+            font-family: inherit;
+        }
+
+        .sort-option:hover {
+            background: rgba(255, 255, 255, 0.05);
+        }
+
+        .sort-radio {
+            width: 16px;
+            height: 16px;
+            border-radius: 999px;
+            border: 2px solid #2F2F2F;
+            box-sizing: border-box;
+            flex-shrink: 0;
+            transition: border-color 0.15s, border-width 0.15s;
+        }
+
+        .sort-option.active .sort-radio {
+            border: 4px solid #EC5B16;
+        }
+
+        .sort-option-label {
+            font-size: 14px;
+            font-weight: 500;
+            color: #F7F7F7;
+            letter-spacing: 0.005em;
+        }
+
+        .sort-option.disabled {
+            opacity: 0.35;
+            cursor: default;
+        }
+
+        .sort-option.disabled:hover {
+            background: none;
+        }
+
         /* ── Video list ── */
         .video-list {
             flex: 1;
@@ -487,6 +585,35 @@
             pointer-events: none;
         }
 
+        .download-split.downloading {
+            border-color: rgba(255, 255, 255, 0.15);
+            pointer-events: none;
+        }
+
+        .download-split.downloading .download-main {
+            color: rgba(255, 255, 255, 0.5);
+        }
+
+        .download-split.downloading .download-chevron,
+        .download-split.downloading .download-divider {
+            opacity: 0.3;
+            pointer-events: none;
+        }
+
+        .download-split.downloaded {
+            border-color: #007657;
+            pointer-events: none;
+        }
+
+        .download-split.downloaded .download-main {
+            color: #00B686;
+        }
+
+        .download-split.downloaded .download-chevron,
+        .download-split.downloaded .download-divider {
+            opacity: 0.3;
+        }
+
         .download-main {
             display: flex;
             align-items: center;
@@ -589,15 +716,30 @@
         /* ── Video player ── */
         .video-player-area {
             flex: 1;
+            display: flex;
+            flex-direction: column;
             background: #000;
             min-height: 0;
             overflow: hidden;
         }
 
+        .video-player-section {
+            flex: 4;
+            display: flex;
+            flex-direction: column;
+            min-height: 0;
+        }
+
         video {
             width: 100%;
-            height: 100%;
+            flex: 1;
+            min-height: 0;
             object-fit: contain;
+            object-position: top;
+        }
+
+        .video-bottom-section {
+            flex: 1;
         }
 
         /* ── Empty state ── */
@@ -689,12 +831,44 @@
                     <img src="img/search.png" alt="Search" />
                     <input type="text" id="searchInput" placeholder="Search recordings..." />
                 </div>
-                <button class="sort-btn" id="sortBtn">
-                    <span id="sortLabel">All</span>
-                    <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <polyline points="6 8 10 12.5 14 8"/>
-                    </svg>
-                </button>
+                <div class="sort-dropdown-wrap">
+                    <button class="sort-btn" id="sortBtn">
+                        <span id="sortLabel">Newest</span>
+                        <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <polyline points="6 8 10 12.5 14 8"/>
+                        </svg>
+                    </button>
+                    <div class="sort-dropdown" id="sortDropdown">
+                        <!-- Date -->
+                        <div class="sort-section">
+                            <div class="sort-section-header">Date</div>
+                            <div class="sort-options">
+                                <button class="sort-option active" data-sort="date-newest">
+                                    <span class="sort-radio"></span>
+                                    <span class="sort-option-label">Newest First</span>
+                                </button>
+                                <button class="sort-option" data-sort="date-oldest">
+                                    <span class="sort-radio"></span>
+                                    <span class="sort-option-label">Oldest First</span>
+                                </button>
+                            </div>
+                        </div>
+                        <!-- Duration -->
+                        <div class="sort-section">
+                            <div class="sort-section-header">Duration</div>
+                            <div class="sort-options">
+                                <button class="sort-option disabled" data-sort="duration-longest">
+                                    <span class="sort-radio"></span>
+                                    <span class="sort-option-label">Longest First</span>
+                                </button>
+                                <button class="sort-option disabled" data-sort="duration-shortest">
+                                    <span class="sort-radio"></span>
+                                    <span class="sort-option-label">Shortest First</span>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
             <div class="video-list" id="videoListContainer"></div>
         </div>
@@ -714,8 +888,8 @@
                 <div class="player-header-right">
                     <div class="download-split disabled" id="downloadSplit">
                         <button class="download-main" id="downloadBtn">
-                            <span class="material-icons-round" style="font-size: 16px;">download</span>
-                            <span>Download</span>
+                            <span class="material-icons-round" id="downloadBtnIcon" style="font-size: 16px;">download</span>
+                            <span id="downloadBtnLabel">Download</span>
                         </button>
                         <span class="download-divider"></span>
                         <button class="download-chevron" id="downloadChevronBtn">
@@ -740,10 +914,12 @@
             </div>
 
             <div class="video-player-area" id="videoPlayerArea">
-                <video id="historyVideoPlayer" controls playsinline>
-                    <p style="color: #fff;">Video playback not supported</p>
-                </video>
-
+                <div class="video-player-section">
+                    <video id="historyVideoPlayer" controls playsinline>
+                        <p style="color: #fff;">Video playback not supported</p>
+                    </video>
+                </div>
+                <div class="video-bottom-section"></div>
             </div>
 
             <!-- Empty state when no recording selected -->

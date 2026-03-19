@@ -248,10 +248,13 @@ function createCameraWindow() {
   }
 }
 
-function createHistoryWindow() {
+function createHistoryWindow(focusSessionId) {
   if (historyWindow && !historyWindow.isDestroyed()) {
     historyWindow.show();
     historyWindow.focus();
+    if (focusSessionId) {
+      historyWindow.webContents.send('history:focus-recording', focusSessionId);
+    }
     return;
   }
 
@@ -270,6 +273,12 @@ function createHistoryWindow() {
 
   historyWindow.loadFile(path.join(RENDERER_DIR, 'history.html'));
   historyWindow.on('closed', () => { historyWindow = null; });
+
+  if (focusSessionId) {
+    historyWindow.webContents.once('did-finish-load', () => {
+      historyWindow.webContents.send('history:focus-recording', focusSessionId);
+    });
+  }
 }
 
 function createModalWindow(page) {
@@ -279,11 +288,15 @@ function createModalWindow(page) {
   }
 
   const theme = getAppConfig().theme || 'dark';
-  const heights = { permissions: 400, onboarding: 360 };
+  const sizes = {
+    permissions: { width: 560, height: 640 },
+    onboarding: { width: 480, height: 360 },
+  };
+  const size = sizes[page] || { width: 480, height: 400 };
 
   modalWindow = new BrowserWindow({
-    width: 480,
-    height: heights[page] || 400,
+    width: size.width,
+    height: size.height,
     center: true,
     resizable: false,
     titleBarStyle: 'hiddenInset',
@@ -547,8 +560,8 @@ app.whenReady().then(async () => {
     getCameraWindow: () => cameraWindow,
   });
 
-  ipcMain.handle('open-history-window', () => {
-    createHistoryWindow();
+  ipcMain.handle('open-history-window', (_event, focusSessionId) => {
+    createHistoryWindow(focusSessionId || null);
     return { success: true };
   });
 

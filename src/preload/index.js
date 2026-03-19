@@ -11,6 +11,8 @@ contextBridge.exposeInMainWorld('recorderAPI', {
     getRecordings: () => ipcRenderer.invoke('get-recordings'),
     syncPendingRecordings: () => ipcRenderer.invoke('sync-pending-recordings'),
     getShareUrl: (videoId) => ipcRenderer.invoke('get-share-url', videoId),
+    downloadVideo: (videoId) => ipcRenderer.invoke('download-video', videoId),
+    downloadTranscript: (recordingId) => ipcRenderer.invoke('download-transcript', recordingId),
     updateRecordingName: (id, name) => ipcRenderer.invoke('update-recording-name', id, name),
     listDevices: () => ipcRenderer.invoke('list-devices'),
 
@@ -22,7 +24,8 @@ contextBridge.exposeInMainWorld('recorderAPI', {
     requestCameraPermission: () => ipcRenderer.invoke('request-camera-permission'),
     toggleCamera: (show) => ipcRenderer.invoke(show ? 'camera-show' : 'camera-hide'),
     openSystemSettings: (type) => ipcRenderer.invoke('open-system-settings', type),
-    openHistoryWindow: () => ipcRenderer.invoke('open-history-window'),
+    openHistoryWindow: (focusSessionId) => ipcRenderer.invoke('open-history-window', focusSessionId),
+    onFocusRecording: (callback) => ipcRenderer.on('history:focus-recording', (_event, sessionId) => callback(sessionId)),
     showPermissionsModal: () => ipcRenderer.invoke('show-permissions-modal'),
     showOnboardingModal: () => ipcRenderer.invoke('show-onboarding-modal'),
     modalComplete: (result) => ipcRenderer.send('modal-complete', result),

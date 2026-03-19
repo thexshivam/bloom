@@ -1,7 +1,9 @@
 'use strict';
 
-const { ipcMain } = require('electron');
-const { getRecordings: dbGetRecordings, updateRecording, findRecordingBySessionId } = require('../db/database');
+const { ipcMain, dialog, shell } = require('electron');
+const fs = require('fs');
+const path = require('path');
+const { getRecordings: dbGetRecordings, updateRecording, findRecordingBySessionId, getRecordingById } = require('../db/database');
 const { getAppConfig } = require('../lib/config');
 const { findUserByToken } = require('../db/database');
 const { checkPendingRecordings } = require('../services/session.service');
@@ -62,6 +64,76 @@ function registerHistoryHandlers(getVideodbService) {
       return { success: true, resolved };
     } catch (error) {
       console.error('Error syncing pending recordings:', error);
+      return { success: false, error: error.message };
+    }
+  });
+
+  ipcMain.handle('download-video', async (_event, videoId) => {
+    try {
+      const apiKey = _getCurrentUserApiKey();
+      if (!apiKey) return { success: false, error: 'Not authenticated' };
+
+      const videodbService = getVideodbService();
+      const { url, name } = await videodbService.getVideoDownloadUrl(apiKey, videoId);
+      if (!url) return { success: false, error: 'No download URL available' };
+
+      const { canceled, filePath } = await dialog.showSaveDialog({
+        defaultPath: name,
+        filters: [{ name: 'Video', extensions: ['mp4'] }],
+      });
+      if (canceled || !filePath) return { success: false, error: 'Cancelled' };
+
+      // Download the file
+      const response = await fetch(url);
+      if (!response.ok) return { success: false, error: `Download failed (${response.status})` };
+
+      const buffer = Buffer.from(await response.arrayBuffer());
+      fs.writeFileSync(filePath, buffer);
+
+      shell.showItemInFolder(filePath);
+      return { success: true, filePath };
+    } catch (error) {
+      console.error('Error downloading video:', error);
+      return { success: false, error: error.message };
+    }
+  });
+
+  ipcMain.handle('download-transcript', async (_event, recordingId) => {
+    try {
+      const apiKey = _getCurrentUserApiKey();
+      if (!apiKey) return { success: false, error: 'Not authenticated' };
+
+      // Try local DB first
+      const recording = getRecordingById(recordingId);
+      let transcriptText = null;
+
+      if (recording?.insights) {
+        try {
+          const insights = JSON.parse(recording.insights);
+          if (insights.transcript) transcriptText = insights.transcript;
+        } catch (_) { /* ignore parse errors */ }
+      }
+
+      // Fall back to API if not in local DB
+      if (!transcriptText && recording?.video_id) {
+        const videodbService = getVideodbService();
+        transcriptText = await videodbService.getTranscriptText(apiKey, recording.video_id);
+      }
+
+      if (!transcriptText) return { success: false, error: 'No transcript available' };
+
+      const defaultName = (recording?.name || 'transcript').replace(/[^a-zA-Z0-9-_ ]/g, '') + '.txt';
+      const { canceled, filePath } = await dialog.showSaveDialog({
+        defaultPath: defaultName,
+        filters: [{ name: 'Text', extensions: ['txt'] }],
+      });
+      if (canceled || !filePath) return { success: false, error: 'Cancelled' };
+
+      fs.writeFileSync(filePath, transcriptText, 'utf-8');
+      shell.showItemInFolder(filePath);
+      return { success: true, filePath };
+    } catch (error) {
+      console.error('Error downloading transcript:', error);
       return { success: false, error: error.message };
     }
   });

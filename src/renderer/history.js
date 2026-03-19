@@ -7,6 +7,8 @@ let activeRecordingId = null;
 let activeRecording = null;
 let activeStreamUrl = null;
 let refreshInterval = null;
+let currentSort = 'date-newest';
+let pendingFocusSessionId = null;
 
 const STATUS_MAP = {
     recording:  { label: 'Recording',   cls: 'status-recording' },
@@ -39,6 +41,12 @@ function formatDuration(recording) {
 // --- Init ---
 
 async function init() {
+    // Listen for focus-recording events from the main process (e.g. after recording stops)
+    window.recorderAPI.onFocusRecording((sessionId) => {
+        pendingFocusSessionId = sessionId;
+        loadHistoryList();
+    });
+
     loadHistoryList();
 
     document.getElementById('syncBtn')?.addEventListener('click', handleSync);
@@ -79,7 +87,39 @@ async function init() {
         handleDownloadTranscript();
     });
 
-    // Search (stub — filters list client-side by name)
+    // Sort dropdown
+    const sortBtn = document.getElementById('sortBtn');
+    const sortDropdown = document.getElementById('sortDropdown');
+    if (sortBtn && sortDropdown) {
+        sortBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            sortDropdown.classList.toggle('visible');
+        });
+        document.addEventListener('click', (e) => {
+            if (!e.target.closest('.sort-dropdown-wrap')) {
+                sortDropdown.classList.remove('visible');
+            }
+        });
+        sortDropdown.querySelectorAll('.sort-option:not(.disabled)').forEach(opt => {
+            opt.addEventListener('click', () => {
+                const sort = opt.dataset.sort;
+                if (sort === currentSort) return;
+                currentSort = sort;
+                // Update radio states
+                sortDropdown.querySelectorAll('.sort-option').forEach(o => o.classList.remove('active'));
+                opt.classList.add('active');
+                // Update label
+                const labels = { 'date-newest': 'Newest', 'date-oldest': 'Oldest' };
+                const sortLabel = document.getElementById('sortLabel');
+                if (sortLabel) sortLabel.textContent = labels[sort] || 'Newest';
+                // Re-sort list
+                applySortToList();
+                sortDropdown.classList.remove('visible');
+            });
+        });
+    }
+
+    // Search (filters list client-side by name)
     document.getElementById('searchInput')?.addEventListener('input', (e) => {
         const query = e.target.value.toLowerCase().trim();
         document.querySelectorAll('.video-item').forEach(item => {
@@ -106,14 +146,26 @@ async function loadHistoryList() {
             return;
         }
 
-        recordings.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+        sortRecordings(recordings);
         listContainer.innerHTML = '';
 
         recordings.forEach(rec => listContainer.appendChild(createVideoListItem(rec)));
 
-        // Auto-select first or preserve selection
-        const toSelect = recordings.find(r => r.id === activeRecordingId) || recordings[0];
-        if (toSelect) selectRecording(toSelect);
+        // Auto-select: pending focus session > previously active > first
+        let toSelect = null;
+        if (pendingFocusSessionId) {
+            toSelect = recordings.find(r => r.session_id === pendingFocusSessionId);
+        }
+        if (!toSelect) {
+            toSelect = recordings.find(r => r.id === activeRecordingId) || recordings[0];
+        }
+        if (toSelect) {
+            selectRecording(toSelect);
+            if (pendingFocusSessionId && toSelect.session_id === pendingFocusSessionId) {
+                pendingFocusSessionId = null;
+                startNameEdit();
+            }
+        }
 
         scheduleAutoRefresh(recordings);
     } catch (error) {
@@ -129,6 +181,18 @@ function scheduleAutoRefresh(recordings) {
     if (hasInProgress) {
         refreshInterval = setInterval(loadHistoryList, 5000);
     }
+}
+
+function sortRecordings(recordings) {
+    if (currentSort === 'date-oldest') {
+        recordings.sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+    } else {
+        recordings.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+    }
+}
+
+function applySortToList() {
+    loadHistoryList();
 }
 
 function createVideoListItem(recording) {
@@ -227,12 +291,15 @@ function updatePlayerHeader(recording) {
 
     if (header) header.style.display = 'flex';
 
-    // Title
-    if (title) {
-        title.textContent = getDisplayName(recording);
-        title.style.display = '';
+    // Title — skip if user is actively editing
+    const isEditing = titleInput && titleInput.style.display !== 'none';
+    if (!isEditing) {
+        if (title) {
+            title.textContent = getDisplayName(recording);
+            title.style.display = '';
+        }
+        if (titleInput) titleInput.style.display = 'none';
     }
-    if (titleInput) titleInput.style.display = 'none';
 
     // Share button — enabled when video is ready
     setShareState(recording.video_id ? 'default' : 'disabled');
@@ -416,16 +483,84 @@ function showToast(message) {
 
 // --- Download ---
 
-function handleDownloadVideo() {
-    if (!activeRecording?.stream_url) return;
-    // Phase 1 stub — backend integration later
-    showToast('Download video started');
+function setDownloadState(state) {
+    const split = document.getElementById('downloadSplit');
+    const icon = document.getElementById('downloadBtnIcon');
+    const label = document.getElementById('downloadBtnLabel');
+    if (!split || !icon || !label) return;
+
+    split.classList.remove('downloading', 'downloaded', 'disabled');
+
+    switch (state) {
+        case 'default':
+            icon.textContent = 'download';
+            label.textContent = 'Download';
+            break;
+        case 'downloading':
+            split.classList.add('downloading');
+            icon.textContent = '';
+            const spinner = document.createElement('span');
+            spinner.className = 'btn-spinner';
+            icon.appendChild(spinner);
+            label.textContent = 'Preparing...';
+            break;
+        case 'downloaded':
+            split.classList.add('downloaded');
+            icon.textContent = 'check';
+            label.textContent = 'Downloaded';
+            break;
+        case 'disabled':
+            split.classList.add('disabled');
+            icon.textContent = 'download';
+            label.textContent = 'Download';
+            break;
+    }
 }
 
-function handleDownloadTranscript() {
-    if (!activeRecording) return;
-    // Phase 1 stub — backend integration later
-    showToast('Download transcript started');
+async function handleDownloadVideo() {
+    if (!activeRecording?.video_id) return;
+
+    setDownloadState('downloading');
+
+    try {
+        const result = await window.recorderAPI.downloadVideo(activeRecording.video_id);
+        if (result.success) {
+            setDownloadState('downloaded');
+            showToast('Video downloaded');
+            setTimeout(() => setDownloadState('default'), 2500);
+        } else if (result.error === 'Cancelled') {
+            setDownloadState('default');
+        } else {
+            showToast(result.error || 'Download failed');
+            setDownloadState('default');
+        }
+    } catch (err) {
+        showToast('Download failed');
+        setDownloadState('default');
+    }
+}
+
+async function handleDownloadTranscript() {
+    if (!activeRecording?.id) return;
+
+    setDownloadState('downloading');
+
+    try {
+        const result = await window.recorderAPI.downloadTranscript(activeRecording.id);
+        if (result.success) {
+            setDownloadState('downloaded');
+            showToast('Transcript downloaded');
+            setTimeout(() => setDownloadState('default'), 2500);
+        } else if (result.error === 'Cancelled') {
+            setDownloadState('default');
+        } else {
+            showToast(result.error || 'Download failed');
+            setDownloadState('default');
+        }
+    } catch (err) {
+        showToast('Download failed');
+        setDownloadState('default');
+    }
 }
 
 // Start

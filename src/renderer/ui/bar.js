@@ -165,9 +165,9 @@ export function resetSessionUI() {
         if (label) label.textContent = 'Start Recording';
     }
 
-    // Show rename row if there was a recording
+    // Open Library window for renaming if there was a recording
     if (lastSessionId) {
-        showRenameRow();
+        window.recorderAPI.openHistoryWindow(lastSessionId);
     }
     if (elements.btnStop) {
         elements.btnStop.classList.add('hidden');

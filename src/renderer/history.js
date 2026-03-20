@@ -256,6 +256,7 @@ function showPlayer(recording, autoplay = false) {
     const video = document.getElementById('historyVideoPlayer');
     const emptyPlayer = document.getElementById('emptyPlayer');
     const playerArea = document.getElementById('videoPlayerArea');
+    const processingOverlay = document.getElementById('playerProcessing');
     if (emptyPlayer) emptyPlayer.style.display = 'none';
     if (playerArea) playerArea.style.display = '';
 
@@ -270,7 +271,11 @@ function showPlayer(recording, autoplay = false) {
     video.load();
     activeStreamUrl = recording.stream_url || null;
 
-    if (!recording.stream_url) return;
+    if (!recording.stream_url) {
+        if (processingOverlay) processingOverlay.classList.add('visible');
+        return;
+    }
+    if (processingOverlay) processingOverlay.classList.remove('visible');
 
     if (Hls.isSupported()) {
         hlsInstance = new Hls();

@@ -8,26 +8,41 @@
 
 <!-- PROJECT LOGO -->
 <br />
-<table align="center" border="0" cellspacing="0" cellpadding="0">
-  <tr>
-    <td valign="middle"><a href="https://videodb.io/"><img src="assets/videodb-logo.jpeg" alt="VideoDB" height="52"></a></td>
-    <td valign="middle"><img src="assets/add.svg" alt="+" height="16"></td>
-    <td valign="middle"><a href="https://videodb.io/"><img src="assets/Colour_Black Wordmark.png" alt="Bloom" height="52"></a></td>
-  </tr>
-</table>
+<p align="center">
+  <a href="https://videodb.io/"><img src="assets/Colour_Black Wordmark.png" alt="Bloom" height="72"></a>
+</p>
+
+<h3 align="center">An open source, agentic Loom alternative.</h3>
 
 <p align="center">
-  A Loom-style screen recording app built with Electron and the VideoDB Capture SDK.
-  <br />
-  <a href="https://docs.videodb.io"><strong>Explore the docs »</strong></a>
+  Record locally. Make recordings AI-ready. Run workflows on top.
   <br />
   <br />
-  <a href="#features">View Features</a>
+  <strong>Record → Query → Automate</strong>
+</p>
+
+<p align="center">
+  <a href="## Installation">Install</a>
   ·
-  <a href="#installation">Installation</a>
+  <a href="#features">Features</a>
+  ·
+  <a href="https://docs.videodb.io"><strong>Docs</strong></a>
   ·
   <a href="https://github.com/video-db/async-recorder/issues">Report Bug</a>
 </p>
+
+---
+
+## What is Bloom?
+
+Bloom is a local-first screen recorder built for agentic workflows. Recordings are no longer files. They are inputs for AI.
+
+- **Record locally** — No lock-in, your files stay yours
+- **Upload to VideoDB** — Automatic cloud sync with AI processing. 
+- **Find any moment** — Transcripts, visual embeddings, metadata.
+- **Let agents work on your recordings** — Query via APIs or agent frameworks like claude code
+
+This is not just recording. This is turning context into action.
 
 ---
 
@@ -59,52 +74,34 @@ This will automatically detect your Mac architecture, download the right build, 
 
 ---
 
-## Getting Started
-
-1. **Grant system permissions** when prompted (Microphone and Screen Recording are required)
-
-2. **Enter your VideoDB API key** on first launch ([console.videodb.io](https://console.videodb.io))
-
----
 
 ## Features
 
-- **Screen recording** — Capture screen, microphone, and system audio via [VideoDB Capture SDK](https://docs.videodb.io/pages/ingest/capture-sdks)
-- **Camera overlay** — Draggable camera bubble during recording
-- **Floating bar** — Always-on-top control bar that never blocks your apps
-- **Multi-monitor** — Display picker to choose which screen to record
-- **Library** — Browse, search, play, rename, and download recordings
-- **Transcription** — Automatic transcript generation with subtitled playback
-- **Chat with video** — Ask questions about your recording via [VideoDB Chat](https://chat.videodb.io)
-- **Share** — One-click shareable link for any recording
-- **Keyboard shortcut** — `Cmd+Shift+R` to start/stop recording from anywhere
+| Feature | Description |
+|---------|-------------|
+| **No subscription** | Pay only for usage |
+| **Local-first** | Record locally, no lock-in |
+| **AI-ready** | Search, summarize, extract |
+| **Screen recording** | Capture screen, microphone, and system audio via [VideoDB Capture SDK](https://docs.videodb.io) |
+| **Camera overlay** | Draggable camera bubble during recording |
+| **Floating bar** | Always-on-top control bar that never blocks your apps |
+| **Multi-monitor** | Display picker to choose which screen to record |
+| **Library** | Browse, search, play, rename, and download recordings |
+| **Transcription** | Automatic transcript generation with subtitled playback |
+| **Chat with video** | Ask questions about your recording via [VideoDB Chat](https://chat.videodb.io) |
+| **Share** | One-click shareable link for any recording |
+| **Keyboard shortcut** | `Cmd+Shift+R` to start/stop recording from anywhere |
+| **Open source** | Fully customizable UI layer |
 
-## Development Setup
+---
 
-### Prerequisites
-
-- Node.js 18+
-- VideoDB API Key ([console.videodb.io](https://console.videodb.io))
-
-### Quick Start
-
-```bash
-npm install
-npm start
-```
-
-On first launch, grant microphone and screen recording permissions, then enter your name and VideoDB API key.
-
-## Usage
-
-1. **Connect** — Enter your name and API key on first launch
-2. **Record** — Click "Start Recording" to capture screen, mic, and system audio
-3. **Camera** — Toggle the camera bubble overlay from source controls
-4. **Library** — Open the Library to browse recordings, play them inline, and manage downloads
-5. **Share** — Click "Copy Link" on any recording to generate and copy a share link
-6. **Download** — Use the split download button to save the video file or transcript
 
 ## Architecture
+
+```
+Bloom = UI layer (open source)
+VideoDB = Intelligence layer (cloud)
+```
 
 ```mermaid
 graph LR
@@ -169,6 +166,52 @@ graph LR
 
 **Post-recording:** Once the video is exported, the app calls the VideoDB API to index spoken words, generate a transcript, and create a subtitled stream — all available for in-app HLS playback or sharing via URL.
 
+---
+
+## Open source
+
+The UI layer is fully open source.
+
+- **Modify it** — Customize the interface to your needs
+- **Extend it** — Add new features and workflows
+- **Plug it in** — Integrate with your own systems
+
+Bloom is not just a tool. It's a foundation for building agentic systems on top of recordings.
+
+---
+
+## Philosophy
+
+Your recorder should not trap your data.
+
+It should:
+
+- **Give you ownership** — Local-first, no lock-in
+- **Enable intelligence** — AI-ready from day one
+- **Power your agents** — APIs and integrations built-in
+
+Bloom is built for that future.
+
+---
+
+## Development Setup
+
+### Prerequisites
+
+- Node.js 18+
+- VideoDB API Key ([console.videodb.io](https://console.videodb.io))
+
+### Quick Start
+
+```bash
+npm install
+npm start
+```
+
+On first launch, grant microphone and screen recording permissions, then enter your name and VideoDB API key.
+
+---
+
 ## Project Structure
 
 ```
@@ -215,6 +258,7 @@ build/
 └── icon.icns                   # App icon
 ```
 
+
 ## Troubleshooting
 
 ### Permissions denied
@@ -231,11 +275,27 @@ build/
 rm ~/Library/Application\ Support/bloom/bloom.db
 rm ~/Library/Application\ Support/bloom/config.json
 ```
-Then relaunch the app.
+Then run `npm start`
+
+---
+
+## Building
+
+```bash
+# Build directory (for testing)
+npm run pack
+
+# Build DMG installers (macOS arm64 + x64)
+npm run dist
+```
+
+---
 
 ## License
 
 MIT
+
+---
 
 ## Community & Support
 
@@ -246,7 +306,11 @@ MIT
 
 ---
 
-<p align="center">Made with ❤️ by the <a href="https://videodb.io">VideoDB</a> team</p>
+<p align="center">
+  <a href="https://videodb.io/"><img src="assets/videodb-logo.jpeg" alt="VideoDB" height="40"></a>
+</p>
+
+<p align="center">Made with love by the <a href="https://videodb.io">VideoDB</a> team</p>
 
 <!-- MARKDOWN LINKS & IMAGES -->
 [electron-shield]: https://img.shields.io/badge/Electron-39.0-47848F?style=for-the-badge&logo=electron&logoColor=white
